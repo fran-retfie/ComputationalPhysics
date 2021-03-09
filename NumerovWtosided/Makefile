@@ -1,0 +1,3 @@
+
+all: main.c CSVio.c CSVio.c DiffInt.c
+	gcc -o sim main.c CSVio.c DiffInt.c -lm -I.
