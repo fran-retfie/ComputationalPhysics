@@ -5,11 +5,14 @@
 #include "CSVio.h"
 #include "DiffInt.h"
 
-#define N 400
+#define N 200
+#define Lmax 10
+#define Nmax 10
 
-const double tEnd = 50;
+const double tEnd = 10;
 const double h = tEnd/(double) N;
-const double Estep = 0.01;
+const double Estep = 0.001;
+double Ea[2][Nmax*Lmax];
 double psi[2][N];
 double a[N];
 
@@ -19,7 +22,8 @@ double E = 0;
 //effective potential (normalized!!)
 double fr(double x, double Ex)
 {
-  return (-(x*x)/9/4+E);
+  double x2 = x*x;
+  return (-x2/4-l*(l+1)/x2+Ex);
 }
 
 double integrate(double Ex)
@@ -42,7 +46,7 @@ double integrate(double Ex)
   psi[1][0] = psi[1][2];
   psi[1][1] = psi[1][2];
 
-  return (psi[1][N-1]-psi[1][N-3]);//psi[1][N-2];
+  return (a[N-1]-a[N-3]);//
 }
 
 int main()
@@ -53,27 +57,62 @@ int main()
   double gammaOld = 1;
   double Eold;
 
-  for(int i = 0; i<10; i++)
+  //scan on angular momentum
+  for(l = 0; l<Lmax; l++)
   {
-    Eold = E;
-    for(; (gamma*gammaOld)>0|(E < Eold+Estep*3); E += Estep)
+    E = 2;
+    //scan on energy
+    for(int n = 0; n<Nmax; n++)
     {
-      gammaOld = gamma;
-      gamma = integrate(E);
-    }
+      Eold = E;
 
-    double E1 = E - Estep;
-    double E2;
-    for(int j = 0; j<1; j++)
-    {
-      E2 = E;
-      E = (E1*integrate(E)-E*integrate(E1))/(integrate(E) - integrate(E1));
-      E1 = E2;
-    }
+      //simple scan
+      for(; (gamma*gammaOld)>0|(E < Eold+Estep*3); E += Estep)
+      {
+        gammaOld = gamma;
+        gamma = integrate(E);
 
-  printf("%lg\n", E);
+        if(E>50)
+        {
+          printf("simple scan not converging, skipping!\n");
+          break;
+        }
+      }
+
+      //tangent method
+      double E1 = E - Estep;
+      double E2;
+      for(int j = 0; j<4; j++)
+      {
+        double g = integrate(E);
+        double g1 = integrate(E1);
+        E2 = E;
+        E = (E1*g-E*g1)/(g - g1);
+        E1 = E2;
+
+        if(abs(g) < 0)
+        {
+          printf("%i\n",j);
+          break;
+        }
+
+        if(j>10)
+        {
+          printf("tangent method not converging, skipping!\n");
+          break;
+        }
+      }
+      //if(psi[1][N-1] < 1)
+      //{
+        printf("%i, %i, %lg\n",l,n,E);
+        Ea[1][n+l*Nmax] = E;
+        Ea[0][n+l*Nmax] = (double) l;
+      //}
+      //else printf("skipped\n");
+    }
   }
 
-  writeCSVdouble("dati.csv",(double *)psi, 2, N);
+  writeCSVdouble("dati.csv",(double *)psi, 4, N);
+  writeCSVdouble("energies.csv",(double *)Ea, 2, Nmax*Lmax);
   return 0;
 }
