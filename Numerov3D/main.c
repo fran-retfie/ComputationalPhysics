@@ -6,8 +6,8 @@
 #include "DiffInt.h"
 
 #define N 200
-#define Lmax 10
-#define Nmax 10
+#define Lmax 3
+#define Nmax 3
 
 const double tEnd = 10;
 const double h = tEnd/(double) N;
@@ -23,7 +23,7 @@ double E = 0;
 double fr(double x, double Ex)
 {
   double x2 = x*x;
-  return (-x2/4-l*(l+1)/x2+Ex);
+  return (-x2*0.25 - l*(l+1)/x2 + Ex);
 }
 
 double integrate(double Ex)
@@ -39,7 +39,7 @@ double integrate(double Ex)
   for(int j = 2; j < N; j++)
   {
     psi[0][j] = h*j;
-    a[j] = NumerovInt(psi[0][j], a[j-1], a[j-2], h, Ex, f);
+    a[j] = NumerovInt(psi[0][j-1], a[j-1], a[j-2], h, Ex, f);
     psi[1][j] = a[j]/psi[0][j];
   }
 
@@ -60,7 +60,7 @@ int main()
   //scan on angular momentum
   for(l = 0; l<Lmax; l++)
   {
-    E = 2;
+    E = Estep;
     //scan on energy
     for(int n = 0; n<Nmax; n++)
     {
@@ -71,48 +71,32 @@ int main()
       {
         gammaOld = gamma;
         gamma = integrate(E);
-
-        if(E>50)
-        {
-          printf("simple scan not converging, skipping!\n");
-          break;
-        }
       }
 
       //tangent method
       double E1 = E - Estep;
       double E2;
-      for(int j = 0; j<4; j++)
+      for(int j = 0; j<8; j++)
       {
         double g = integrate(E);
         double g1 = integrate(E1);
+        if(g==g1) break;
         E2 = E;
         E = (E1*g-E*g1)/(g - g1);
         E1 = E2;
-
-        if(abs(g) < 0)
-        {
-          printf("%i\n",j);
-          break;
-        }
-
-        if(j>10)
-        {
-          printf("tangent method not converging, skipping!\n");
-          break;
-        }
       }
-      //if(psi[1][N-1] < 1)
-      //{
-        printf("%i, %i, %lg\n",l,n,E);
-        Ea[1][n+l*Nmax] = E;
-        Ea[0][n+l*Nmax] = (double) l;
-      //}
-      //else printf("skipped\n");
+
+      printf("l = %i, n = %i, E = %15.14g\n",l,n,E);
+      Ea[1][n+l*Nmax] = E;
+      Ea[0][n+l*Nmax] = (double) l;
+
+      char filename[13];
+      sprintf(filename,"dati/plot%02i%02i",n,l);
+      writeCSVdouble(filename,(double *)psi, 2, N);
     }
   }
 
-  writeCSVdouble("dati.csv",(double *)psi, 4, N);
+
   writeCSVdouble("energies.csv",(double *)Ea, 2, Nmax*Lmax);
   return 0;
 }
