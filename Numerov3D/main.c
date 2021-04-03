@@ -5,7 +5,7 @@
 #include "CSVio.h"
 #include "DiffInt.h"
 
-#define N 200
+#define N 1000
 #define Lmax 3
 #define Nmax 3
 
@@ -39,7 +39,7 @@ double integrate(double Ex)
   for(int j = 2; j < N; j++)
   {
     psi[0][j] = h*j;
-    a[j] = NumerovInt(psi[0][j-1], a[j-1], a[j-2], h, Ex, f);
+    a[j] = NumerovInt(psi[0][j], a[j-1], a[j-2], h, Ex, f);
     psi[1][j] = a[j]/psi[0][j];
   }
 

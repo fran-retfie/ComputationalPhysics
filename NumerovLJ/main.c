@@ -5,13 +5,21 @@
 #include "CSVio.h"
 #include "DiffInt.h"
 
-#define N 200
+#define N 1000
 #define Lmax 3
 #define Nmax 3
 
-const double tEnd = 10;
+const double tEnd = 500;
 const double h = tEnd/(double) N;
 const double Estep = 0.001;
+const double sigma = 3.18; //angstrom
+const double epsilon = 5.9;//meV
+const double h2m = 1; //hbar/2m in units of sigma and epsilon = 7.77x10^(-19)
+const double b10 = 4./(25.*h2m);
+//double b10 = sqrt(arg); //b^5 in units of sigma and epsilon
+
+
+
 double Ea[2][Nmax*Lmax];
 double psi[2][N];
 double a[N];
@@ -22,8 +30,11 @@ double E = 0;
 //effective potential (normalized!!)
 double fr(double x, double Ex)
 {
-  double x2 = x*x;
-  return (-x2*0.25 - l*(l+1)/x2 + Ex);
+  double x2 = 1./(x*x);
+  double x4 = x2*x2;
+  double x6 = x4*x2;
+  double x12 = x6*x6;
+  return (-4*(x12 - x6) - l*(l+1)*x2 + Ex);//
 }
 
 double integrate(double Ex)
@@ -33,13 +44,16 @@ double integrate(double Ex)
   //initial condition
   psi[0][0] = 0;
   a[0] = 0;
-  psi[0][1] = h;
-  a[1] = h;
+  psi[0][1] = 0.5; //in units of sigma r_low is in [0,1]
+  double x = 1./psi[0][1];
+  double x2 = x*x;
+  double x5 = x2*x2*x;
+  a[1] = exp(-sqrt(b10)*x5);
 
   for(int j = 2; j < N; j++)
   {
     psi[0][j] = h*j;
-    a[j] = NumerovInt(psi[0][j-1], a[j-1], a[j-2], h, Ex, f);
+    a[j] = NumerovInt(psi[0][j], a[j-1], a[j-2], h, Ex, f);
     psi[1][j] = a[j]/psi[0][j];
   }
 
@@ -51,6 +65,7 @@ double integrate(double Ex)
 
 int main()
 {
+  printf("%f\n", b10);
   psi[1][N-1] = 1;
 
   double gamma = 1;
