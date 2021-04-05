@@ -9,23 +9,22 @@
 #define Lmax 3
 #define Nmax 3
 
-const double tEnd = 500;
-const double h = tEnd/(double) N;
-const double Estep = 0.001;
+const double Estep = 0.0001;
 const double sigma = 3.18; //angstrom
 const double epsilon = 5.9;//meV
 const double h2m = 1; //hbar/2m in units of sigma and epsilon = 7.77x10^(-19)
 const double b10 = 4./(25.*h2m);
 //double b10 = sqrt(arg); //b^5 in units of sigma and epsilon
-
-
+const double xStart = 0.5;
+const double tEnd = sigma*4;
+const double h = tEnd/(double) N;
 
 double Ea[2][Nmax*Lmax];
 double psi[2][N];
 double a[N];
 
 int l = 0;
-double E = 0;
+double E;
 
 //effective potential (normalized!!)
 double fr(double x, double Ex)
@@ -37,27 +36,35 @@ double fr(double x, double Ex)
   return (-4*(x12 - x6) - l*(l+1)*x2 + Ex);//
 }
 
+double initialCondition(double r0)
+{
+  double x = 1./r0;
+  double x2 = x*x;
+  double x5 = x2*x2*x;
+  return exp(-sqrt(b10)*x5);
+}
+
 double integrate(double Ex)
 {
   double (*f)(double,double) = &fr;
 
   //initial condition
-  psi[0][0] = 0;
-  a[0] = 0;
-  psi[0][1] = 0.5; //in units of sigma r_low is in [0,1]
-  double x = 1./psi[0][1];
-  double x2 = x*x;
-  double x5 = x2*x2*x;
-  a[1] = exp(-sqrt(b10)*x5);
+  psi[0][0] = xStart; //in units of sigma r_low is in [0,1]
+  a[0] = initialCondition(psi[0][0]);
+  psi[1][0] = a[0]/psi[0][0];
+
+  psi[0][1] = xStart+h; //in units of sigma r_low is in [0,1]
+  a[1] = initialCondition(psi[0][1]);
+  psi[1][1] = a[1]/psi[0][1];
 
   for(int j = 2; j < N; j++)
   {
-    psi[0][j] = h*j;
+    psi[0][j] = h*j + xStart;
     a[j] = NumerovInt(psi[0][j], a[j-1], a[j-2], h, Ex, f);
     psi[1][j] = a[j]/psi[0][j];
   }
 
-  psi[1][0] = psi[1][2];
+  psi[1][0] = a[0];
   psi[1][1] = psi[1][2];
 
   return (a[N-1]-a[N-3]);//
@@ -75,7 +82,7 @@ int main()
   //scan on angular momentum
   for(l = 0; l<Lmax; l++)
   {
-    E = Estep;
+    E = -epsilon;
     //scan on energy
     for(int n = 0; n<Nmax; n++)
     {
@@ -91,13 +98,14 @@ int main()
       //tangent method
       double E1 = E - Estep;
       double E2;
-      for(int j = 0; j<8; j++)
+      for(int j = 0; j<100; j++)
       {
         double g = integrate(E);
         double g1 = integrate(E1);
         if(g==g1) break;
         E2 = E;
         E = (E1*g-E*g1)/(g - g1);
+        if(fabs(E - E1)<1e-17) break;
         E1 = E2;
       }
 
