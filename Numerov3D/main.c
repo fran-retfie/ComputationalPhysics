@@ -58,9 +58,9 @@ double CalcNorm()
   double I = 0;
   for(int j = 1; j < N-1; j+=2)
   {
-    I += h/3*(psi[1][j-1]+4*psi[1][j]+psi[1][j+1]);
+    I += h/3*(psi[1][j-1]*psi[1][j-1]+4*psi[1][j]*psi[1][j]+psi[1][j+1]*psi[1][j+1]);
   }
-  return I;
+  return sqrt(I);
 }
 
 int main()
