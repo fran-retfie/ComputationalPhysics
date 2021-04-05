@@ -22,6 +22,7 @@ double E = 0;
 //effective potential (normalized!!)
 double fr(double x, double Ex)
 {
+  if(x == 0) printf("error\n");
   double x2 = x*x;
   return (-x2*0.25 - l*(l+1)/x2 + Ex);
 }
@@ -35,18 +36,31 @@ double integrate(double Ex)
   a[0] = 0;
   psi[0][1] = h;
   a[1] = h;
+  psi[0][2] = 2*h;
+  a[2] = 2*h;
 
-  for(int j = 2; j < N; j++)
+  for(int j = 3; j < N; j++)
   {
     psi[0][j] = h*j;
-    a[j] = NumerovInt(psi[0][j], a[j-1], a[j-2], h, Ex, f);
+    a[j] = NumerovInt(psi[0][j-1], a[j-1], a[j-2], h, Ex, f);
     psi[1][j] = a[j]/psi[0][j];
   }
 
-  psi[1][0] = psi[1][2];
-  psi[1][1] = psi[1][2];
+  psi[1][2] = a[2]/psi[0][2];
+  psi[1][1] = a[1]/psi[0][1];
+  psi[1][0] = psi[1][1];
 
   return (a[N-1]-a[N-3]);//
+}
+
+double CalcNorm()
+{
+  double I = 0;
+  for(int j = 1; j < N-1; j+=2)
+  {
+    I += h/3*(psi[1][j-1]+4*psi[1][j]+psi[1][j+1]);
+  }
+  return I;
 }
 
 int main()
@@ -90,12 +104,14 @@ int main()
       Ea[1][n+l*Nmax] = E;
       Ea[0][n+l*Nmax] = (double) l;
 
+      double norm = CalcNorm();
+      for(int j = 0; j < N; j++) psi[1][j] = psi[1][j]/norm;
+
       char filename[13];
       sprintf(filename,"dati/plot%02i%02i",n,l);
       writeCSVdouble(filename,(double *)psi, 2, N);
     }
   }
-
 
   writeCSVdouble("energies.csv",(double *)Ea, 2, Nmax*Lmax);
   return 0;

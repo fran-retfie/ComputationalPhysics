@@ -57,6 +57,16 @@ double integrate(double Ex, int n)
   return (a[N-1]-a[N-3]);//
 }
 
+double CalcNorm()
+{
+  double I = 0;
+  for(int j = 1; j < N-1; j+=2)
+  {
+    I += h/3*(psi[1][j-1]+4*psi[1][j]+psi[1][j+1]);
+  }
+  return I;
+}
+
 int main()
 {
   psi[1][N-1] = 1;
@@ -95,10 +105,12 @@ int main()
     printf("n = %i, E = %15.14g\n",n,E);
     Ea[1][n] = E;
 
+    double norm = CalcNorm();
+    for(int j = 0; j < N; j++) psi[1][j] = psi[1][j]/norm;
+
     char filename[11];
     sprintf(filename,"dati/plot%02i",n);
     writeCSVdouble(filename,(double *)psi, 2, N);
-
 
   }
 

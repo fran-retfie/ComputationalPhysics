@@ -9,14 +9,14 @@
 #define Lmax 3
 #define Nmax 3
 
-const double Estep = 0.0001;
-const double sigma = 3.18; //angstrom
-const double epsilon = 5.9;//meV
+const double Estep = 0.001;
+//const double sigma = 3.18; //angstrom
+//const double epsilon = 5.9;//meV
 const double h2m = 1; //hbar/2m in units of sigma and epsilon = 7.77x10^(-19)
-const double b10 = 4./(25.*h2m);
+const double b10 = 8./(25.*h2m);
 //double b10 = sqrt(arg); //b^5 in units of sigma and epsilon
 const double xStart = 0.5;
-const double tEnd = sigma*4;
+const double tEnd = 5;
 const double h = tEnd/(double) N;
 
 double Ea[2][Nmax*Lmax];
@@ -60,7 +60,7 @@ double integrate(double Ex)
   for(int j = 2; j < N; j++)
   {
     psi[0][j] = h*j + xStart;
-    a[j] = NumerovInt(psi[0][j], a[j-1], a[j-2], h, Ex, f);
+    a[j] = NumerovInt(psi[0][j-1], a[j-1], a[j-2], h, Ex, f);
     psi[1][j] = a[j]/psi[0][j];
   }
 
@@ -68,6 +68,16 @@ double integrate(double Ex)
   psi[1][1] = psi[1][2];
 
   return (a[N-1]-a[N-3]);//
+}
+
+double CalcNorm()
+{
+  double I = 0;
+  for(int j = 1; j < N-1; j+=2)
+  {
+    I += h/3*(psi[1][j-1]+4*psi[1][j]+psi[1][j+1]);
+  }
+  return I;
 }
 
 int main()
@@ -82,7 +92,8 @@ int main()
   //scan on angular momentum
   for(l = 0; l<Lmax; l++)
   {
-    E = -epsilon;
+    E = -1;
+
     //scan on energy
     for(int n = 0; n<Nmax; n++)
     {
@@ -112,6 +123,9 @@ int main()
       printf("l = %i, n = %i, E = %15.14g\n",l,n,E);
       Ea[1][n+l*Nmax] = E;
       Ea[0][n+l*Nmax] = (double) l;
+
+      double norm = CalcNorm();
+      for(int j = 0; j < N; j++) psi[1][j] = psi[1][j]/norm;
 
       char filename[13];
       sprintf(filename,"dati/plot%02i%02i",n,l);
