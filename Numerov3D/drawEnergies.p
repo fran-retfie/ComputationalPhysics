@@ -1,23 +1,14 @@
 
 set datafile separator ','
 
-plot "energies.csv" using 2:3 with points pointtype 5
+set xrange [-0.5:2.5]
+set yrange [1:8]
+set title "3D Harmonic oscillator states"
+set ylabel "E"
+set grid ytics mytics
+set mytics 2
+unset xtics
 
-# Draw 5 vertical lines
-n = 30
-
-# ... evenly spaced between x0 and x1
-x0 = 2.5
-x1 = 3.5
-dx = (x1-x0)
-
-# ... each line going from y0 to y1
-y0 = 0
-y1 = 10
-
-do for [i = 0:n-1] {
-    x = x0 + i*dx
-    set arrow from y0,x to y1,x #nohead linecolor "blue" # add other styling options if needed
-}
+plot "energies.csv" using 2:3:(sprintf("k=%d, l=%d", $1, $2)) with labels point pt 7 ps 1.5 lc rgb "blue" offset char 1,1 notitle
 
 pause -1
