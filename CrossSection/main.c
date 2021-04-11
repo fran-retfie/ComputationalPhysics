@@ -8,10 +8,11 @@
 #define N 10000
 #define Lmax 5
 #define Nmax 3
-
-const double tEnd = 2;
+#define sizeEa 3000
+const double Emax = 0.3;
+const double tEnd = 100;
 const double h = tEnd/(double) N;
-const double Estep = 0.01;
+const double Estep = 0.0001;
 double sigma = 3.18e-10; //angstrom
 double epsilon = 5.9;//meV
 const double h2m = 0.03517; //hbar/2m in units of sigma and epsilon = 7.77x10^(-19)
@@ -20,7 +21,7 @@ const double b10 = 8./(25.*h2m);
 const double xStart = 0.7;
 
 double delta_l[Lmax];
-double Ea[2][Nmax*Lmax];
+double Ea[2][sizeEa];
 double psi[2][N];
 double psi_norm[2][N];
 double a[N];
@@ -35,7 +36,7 @@ double fr(double x, double Ex)
   double x4 = x2*x2;
   double x6 = x4*x2;
   double x12 = x6*x6;
-  return (-4/h2m*(x12 - x6) - l*(l+1)*x2 + Ex);//
+  return (-4/h2m*(x12 - x6) - l*(l+1)*x2 + Ex/h2m);//
 }
 double initialCondition(double r0)
 {
@@ -104,7 +105,7 @@ int main()
   epsilon = 1;
   //parameters to determine change in sign of solution
   int ee=0;
-  for(E = epsilon*0.01; E<3.5; E += Estep)
+  for(E = epsilon*0.01; E<Emax; E += Estep)
   {
     ee++;
   }
@@ -113,7 +114,7 @@ int main()
   double K;
   double *j1,*j2;
   double *n1,*n2;
-  double s[Lmax];
+  double s1[Lmax], s2[Lmax], s3[Lmax], s4[Lmax];
   double r1,r2;
   double R1[Lmax],R2[Lmax];
   double tmp0;
@@ -123,8 +124,8 @@ int main()
   int in=0;
   double sum=0;
   double pi = 4.*atan(1.);
-  ee=0;
-  for(E = epsilon*0.01; E<3.5; E += Estep)
+  int fee=0;
+  for(E = epsilon*0.01; E<Emax; E += Estep)
   {
 
     //scan on angular momentum
@@ -140,6 +141,7 @@ int main()
         {
           r1 = psi[0][j];
           R1[l] = psi[1][j];
+          //printf("R1 = %g\n", R1[l]);
         }
         if ((psi[0][j] > 50)&&(psi[0][j]<51))
         {
@@ -148,32 +150,38 @@ int main()
         }
       }
       // printf("r1=%g    r2=%g\n", r1,r2);
-      sprintf(filename,"dati/plot%02i_%02i",l,ee);
+      sprintf(filename,"dati/plot%02i_%02i",l,fee);
       writeCSVdouble(filename,(double *)psi_norm, 2, N);
     }
-    ee++;
+    fee++;
     k = sqrt(E/h2m);
     //calculate bessel function for given E
     x = k*r1;
-    // j1 = Bessel(x,Lmax,0,s);
-    // n1 = Bessel(x,Lmax,1,s);
-    // x = k*r2;
-    // j2 = Bessel(x,Lmax,0,s);
-    // n2 = Bessel(x,Lmax,1,s);
-    // //calculate delta_l
-    // for(l = 0; l<Lmax; l++)
-    // {
-    //   K = (R1[l]*r2)/(R2[l]*r1);
-    //   delta_l[l] = atan((K*j2[l] - j1[l])/(K*n2[l] - n1[l]));
-    //   sum = sum + (2*l+1)*sin(delta_l[l])*sin(delta_l[l]);
-    // }
-    // sigmaTOT[in] = 4.*pi/(k*k)*sum*sigma*sigma;
+    j1 = Bessel(x,Lmax,0,s1);
+    n1 = Bessel(x,Lmax,1,s2);
+    x = k*r2;
+    j2 = Bessel(x,Lmax,0,s3);
+    n2 = Bessel(x,Lmax,1,s4);
+    //calculate delta_l
+    for(l = 0; l<Lmax; l++)
+    {
+      // printf("l = %i\n", l);
+      K = (R1[l]*r2)/(R2[l]*r1);
+      // printf("K = %g\n", K);
+      delta_l[l] = atan((K*j2[l] - j1[l])/(K*n2[l] - n1[l]));
+      // printf("j1 = %g      j2 = %g      n1 = %g      n2 = %g\n",j1[l], j2[l], n1[l], n2[l] );
+      // printf("delta_l = %g\n", delta_l[l]);
+      sum = sum + (2*l+1)*sin(delta_l[l])*sin(delta_l[l]);
+    }
+    sigmaTOT[in] = 4.*pi/(k*k)*sum;
+    Ea[0][in] = E;
+    Ea[1][in] = sigmaTOT[in];
     //printf("E = %g,    sigmaTOT_%i = %g\n",E, in, sigmaTOT[in]);
     sum = 0;
     in++;
   }
 
-
-  writeCSVdouble("energies.csv",(double *)Ea, 2, Nmax*Lmax);
+  //writeCSVdouble("CrossSec.csv",(double *)out, 2, ee);
+  writeCSVdouble("energies.csv",(double *)Ea, 2, sizeEa);
   return 0;
 }
