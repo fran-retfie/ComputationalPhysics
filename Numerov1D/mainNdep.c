@@ -5,17 +5,17 @@
 #include "CSVio.h"
 #include "DiffInt.h"
 
-#define N 1000
-#define Nmax 5
-
-const double tEnd = 10;
-const double h = tEnd/(double) N;
-const double Estep = 0.001;
-double Ea[2][Nmax];
-double psi[2][N];
-double a[N];
+#define Nmax 46
+#define Nmmmax 300000
 
 double E = 0;
+const double tEnd = 10;
+const double Estep = 0.001;
+long N = 9;
+double h;
+double Ea[2][Nmax];
+double psi[2][Nmmmax];
+double a[Nmmmax];
 
 //effective potential (normalized!!)
 double fr(double x, double Ex)
@@ -29,20 +29,10 @@ double integrate(double Ex, int n)
   double (*f)(double,double) = &fr;
 
   //initial condition
-  if(n%2==1)
-  {
-    psi[0][0] = 0;
-    a[0] = 0;
-    psi[0][1] = h;
-    a[1] = h;
-  }
-  else
-  {
-    psi[0][0] = 0;
-    a[0] = 1;
-    psi[0][1] = h;
-    a[1] = 1 - Ex*h*h/2;
-  }
+  psi[0][0] = 0;
+  a[0] = 1;
+  psi[0][1] = h;
+  a[1] = 1 - Ex*h*h/2;
 
   for(int j = 2; j < N; j++)
   {
@@ -79,7 +69,11 @@ int main()
     //scan on energy
     for(int n = 0; n<Nmax; n++)
     {
+      E = Estep;
       Eold = E;
+
+      N = N + (N>>2);
+      h = tEnd/(double) N;
 
     //simple scan
     for(; (gamma*gammaOld)>0|(E < Eold+Estep*3); E += Estep)
@@ -98,22 +92,23 @@ int main()
       if(g==g1) break;
       E2 = E;
       E = (E1*g-E*g1)/(g - g1);
-      if(fabs(E-E1)<1e-14*Estep) break;
+      if(fabs(E-E1)<1e-20*Estep) break;
       E1 = E2;
     }
 
-    printf("n = %i, E = %15.14g, E/E = %lg\n",n,E,(E-n-0.5)/E);
-    Ea[1][n] = E;
+    printf("N = %i, E = %15.14g, E/E = %lg\n",N,E,(E-0.5)/E);
+    Ea[1][n] = fabs((E-0.5)/E);
+    Ea[0][n] = (double) N;
 
     double norm = CalcNorm();
     for(int j = 0; j < N; j++) psi[1][j] = psi[1][j]/norm;
 
-    char filename[11];
-    sprintf(filename,"dati/plot%02i",n);
-    writeCSVdouble(filename,(double *)psi, 2, N);
+    //char filename[11];
+    //sprintf(filename,"dati/plot%02i",n);
+    //writeCSVdouble(filename,(double *)psi, 2, N);
 
   }
 
-  writeCSVdouble("dati/energies.csv",(double *)Ea, 2, Nmax);
+  writeCSVdouble("dati/energiesN.csv",(double *)Ea, 2, Nmax);
   return 0;
 }

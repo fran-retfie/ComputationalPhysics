@@ -1,7 +1,7 @@
 
 set datafile separator ','
-set terminal qt enhanced
-set termoption enhanced
+set terminal pngcairo size 700, 550 enhanced
+set output 'plots/HO3D.png'
 
 set title "3D Harmonic oscillator states"
 set xlabel "r"

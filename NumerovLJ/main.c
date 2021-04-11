@@ -135,6 +135,6 @@ int main()
   }
 
 
-  writeCSVdouble("energies.csv",(double *)Ea, 2, Nmax*Lmax);
+  writeCSVdouble("dati/energies.csv",(double *)Ea, 2, Nmax*Lmax);
   return 0;
 }
