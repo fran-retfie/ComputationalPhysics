@@ -168,7 +168,7 @@ int main()
       // printf("l = %i\n", l);
       K = (R1[l]*r2)/(R2[l]*r1);
       // printf("K = %g\n", K);
-      delta_l[l] = atan((K*j2[l] - j1[l])/(K*n2[l] - n1[l]));
+      delta_l[l] = atan2((K*j2[l] - j1[l]),(K*n2[l] - n1[l]));
       // printf("j1 = %g      j2 = %g      n1 = %g      n2 = %g\n",j1[l], j2[l], n1[l], n2[l] );
       // printf("delta_l = %g\n", delta_l[l]);
       sum = sum + (2*l+1)*sin(delta_l[l])*sin(delta_l[l]);
