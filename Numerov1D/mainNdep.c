@@ -44,7 +44,7 @@ double integrate(double Ex, int n)
   psi[1][0] = psi[1][2];
   psi[1][1] = psi[1][2];
 
-  return (a[N-1]-a[N-3]);//
+  return (a[N-1]-8*a[N-2]-8*a[N-4]+a[N-5]); //a[N-1]-a[N-2]; //(a[N-1]-8*a[N-2]-8*a[N-4]+a[N-5]);
 }
 
 double CalcNorm()

@@ -6,13 +6,13 @@
 #include "DiffInt.h"
 #include <RecFormulae.h>
 #define N 10000
-#define Lmax 5
+#define Lmax 7
 #define Nmax 3
-#define sizeEa 3000
-const double Emax = 0.3;
+#define sizeEa 551
+double Emax;
 const double tEnd = 100;
 const double h = tEnd/(double) N;
-const double Estep = 0.0001;
+double Estep = 0.001;
 double sigma = 3.18e-10; //angstrom
 double epsilon = 5.9;//meV
 const double h2m = 0.03517; //hbar/2m in units of sigma and epsilon = 7.77x10^(-19)
@@ -105,7 +105,10 @@ int main()
   epsilon = 1;
   //parameters to determine change in sign of solution
   int ee=0;
-  for(E = epsilon*0.01; E<Emax; E += Estep)
+  double Estart = 0.25/epsilon;
+  Emax = 3.5/epsilon+Estep;
+
+  for(E = Estart; E<Emax; E += Estep)
   {
     ee++;
   }
@@ -125,9 +128,9 @@ int main()
   double sum=0;
   double pi = 4.*atan(1.);
   int fee=0;
-  for(E = epsilon*0.01; E<Emax; E += Estep)
+  for(E = Estart; E<Emax; E += Estep)
   {
-
+    k = sqrt(E/h2m);
     //scan on angular momentum
     for(l = 0; l<Lmax; l++)
     {
@@ -137,24 +140,23 @@ int main()
       {
         psi_norm[1][j] = psi[1][j]/norm;
         psi_norm[0][j] = psi[0][j];
-        if ((psi[0][j] > 20)&&(psi[0][j]<21))
+        if ((psi[0][j] > 5)&&(psi[0][j]<5+2*h))
         {
           r1 = psi[0][j];
           R1[l] = psi[1][j];
           //printf("R1 = %g\n", R1[l]);
         }
-        if ((psi[0][j] > 50)&&(psi[0][j]<51))
+        if ((psi[0][j] > r1)&&(psi[0][j]<r1+pi/(2*k)))
         {
           r2 = psi[0][j];
           R2[l] = psi[1][j];
         }
       }
       // printf("r1=%g    r2=%g\n", r1,r2);
-      sprintf(filename,"dati/plot%02i_%02i",l,fee);
-      writeCSVdouble(filename,(double *)psi_norm, 2, N);
+      //sprintf(filename,"dati/plot%02i_%02i",l,fee);
+      //writeCSVdouble(filename,(double *)psi_norm, 2, N);
     }
     fee++;
-    k = sqrt(E/h2m);
     //calculate bessel function for given E
     x = k*r1;
     j1 = Bessel(x,Lmax,0,s1);

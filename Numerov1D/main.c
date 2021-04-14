@@ -54,7 +54,7 @@ double integrate(double Ex, int n)
   psi[1][0] = psi[1][2];
   psi[1][1] = psi[1][2];
 
-  return (a[N-1]-a[N-3]);//
+  return (a[N-1]-8*a[N-2]-8*a[N-4]+a[N-5]); //(a[N-1]-a[N-2]);
 }
 
 double CalcNorm()
@@ -111,7 +111,6 @@ int main()
     char filename[11];
     sprintf(filename,"dati/plot%02i",n);
     writeCSVdouble(filename,(double *)psi, 2, N);
-
   }
 
   writeCSVdouble("dati/energies.csv",(double *)Ea, 2, Nmax);
