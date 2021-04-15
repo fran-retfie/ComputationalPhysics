@@ -12,7 +12,7 @@
 double Emax;
 const double tEnd = 100;
 const double h = tEnd/(double) N;
-double Estep = 0.001;
+const double Estep = 0.001;
 double sigma = 3.18e-10; //angstrom
 double epsilon = 5.9;//meV
 const double h2m = 0.03517; //hbar/2m in units of sigma and epsilon = 7.77x10^(-19)
@@ -69,26 +69,6 @@ double integrate(double Ex,int l)
     psi[1][j] = a[j];
   }
   return (a[N-1]-a[N-3]);//
-  // //initial condition
-  // psi[0][0] = 0.8*sigma;
-  // psi[0][1] = psi[0][0]+h; //in units of sigma r_low is in [0,1]
-  // double x = 1./psi[0][0];
-  // double x2 = x*x;
-  // double x5 = x2*x2*x;
-  // a[0] = exp(-sqrt(b10)*x5);
-  // a[1] = pow(a[0],(double)l);
-  //
-  // for(int j = 2; j < N; j++)
-  // {
-  //   psi[0][j] = psi[0][0] + h*j;
-  //   a[j] = NumerovInt(psi[0][j-1], a[j-1], a[j-2], h, Ex, f);
-  //   psi[1][j] = a[j]/psi[0][j];
-  // }
-  //
-  // psi[1][0] = psi[1][2];
-  // psi[1][1] = psi[1][2];
-
-  // return a[N-1];//
 }
 double CalcNorm()
 {
@@ -102,17 +82,8 @@ double CalcNorm()
 
 int main()
 {
-  epsilon = 1;
   //parameters to determine change in sign of solution
-  int ee=0;
-  double Estart = 0.25/epsilon;
-  Emax = 3.5/epsilon+Estep;
 
-  for(E = Estart; E<Emax; E += Estep)
-  {
-    ee++;
-  }
-  double sigmaTOT[ee];
   double k,x;
   double K;
   double *j1,*j2;
@@ -122,12 +93,19 @@ int main()
   double R1[Lmax],R2[Lmax];
   double tmp0;
   char filename[17];
-  r1 = 20;//in units of sigma
-  r2 = 50;
   int in=0;
   double sum=0;
   double pi = 4.*atan(1.);
   int fee=0;
+  Emax = 3.5/epsilon +Estep;
+  double Estart = 0.25/epsilon;
+  int ee=0;
+  for(E = Estart; E<Emax; E += Estep)
+  {
+    ee++;
+    //printf("ee = %i\n", ee);
+  }
+  double sigmaTOT[ee];
   for(E = Estart; E<Emax; E += Estep)
   {
     k = sqrt(E/h2m);
@@ -140,23 +118,35 @@ int main()
       {
         psi_norm[1][j] = psi[1][j]/norm;
         psi_norm[0][j] = psi[0][j];
+
         if ((psi[0][j] > 5)&&(psi[0][j]<5+2*h))
         {
+          // while (fabs(psi_norm[1][j]) < 0.0001) {
+          //   j++;
+          // }
           r1 = psi[0][j];
           R1[l] = psi[1][j];
           //printf("R1 = %g\n", R1[l]);
         }
         if ((psi[0][j] > r1)&&(psi[0][j]<r1+pi/(2*k)))
         {
+          // while (fabs(psi_norm[1][j]) < 0.0001) {
+          //   j++;
+          // }
           r2 = psi[0][j];
           R2[l] = psi[1][j];
         }
       }
       // printf("r1=%g    r2=%g\n", r1,r2);
-      //sprintf(filename,"dati/plot%02i_%02i",l,fee);
-      //writeCSVdouble(filename,(double *)psi_norm, 2, N);
+      if(fee<11)
+      {
+        // sprintf(filename,"dati/plot%02i_%02i",l,fee);
+        // writeCSVdouble(filename,(double *)psi_norm, 2, N);
+      }
+
     }
     fee++;
+
     //calculate bessel function for given E
     x = k*r1;
     j1 = Bessel(x,Lmax,0,s1);
@@ -168,15 +158,16 @@ int main()
     for(l = 0; l<Lmax; l++)
     {
       // printf("l = %i\n", l);
-      K = (R1[l]*r2)/(R2[l]*r1);
-      // printf("K = %g\n", K);
+       K = (R1[l]*r2)/(R2[l]*r1);
+      //K = (R1[l])/(R2[l]);
+      printf("fee = %i    K = %g\n",fee, K);
       delta_l[l] = atan2((K*j2[l] - j1[l]),(K*n2[l] - n1[l]));
       // printf("j1 = %g      j2 = %g      n1 = %g      n2 = %g\n",j1[l], j2[l], n1[l], n2[l] );
       // printf("delta_l = %g\n", delta_l[l]);
       sum = sum + (2*l+1)*sin(delta_l[l])*sin(delta_l[l]);
     }
     sigmaTOT[in] = 4.*pi/(k*k)*sum;
-    Ea[0][in] = E;
+    Ea[0][in] = E*epsilon;
     Ea[1][in] = sigmaTOT[in];
     //printf("E = %g,    sigmaTOT_%i = %g\n",E, in, sigmaTOT[in]);
     sum = 0;
