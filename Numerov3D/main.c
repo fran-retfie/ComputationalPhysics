@@ -100,7 +100,7 @@ int main()
         E1 = E2;
       }
 
-      printf("l = %i, n = %i, E = %15.14g\n",l,n,E);
+      printf(" %i & %i & %15.14g & %3.1g \\\\ \n",l,n,E,(E-(2*n+l+1.5))/(2*n+l+1.5));
       Ea[1][n+l*Nmax] = E;
       Ea[0][n+l*Nmax] = (double) l;
 

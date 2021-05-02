@@ -1,6 +1,9 @@
 
 set datafile separator ','
 
+set terminal pngcairo size 1000, 800 enhanced
+set output 'plots/Energies3D.png'
+
 set xrange [-0.5:2.5]
 set yrange [1:8]
 set title "3D Harmonic oscillator states"

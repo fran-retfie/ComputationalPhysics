@@ -1,6 +1,6 @@
 
 set datafile separator ','
-set terminal pngcairo size 700, 550 enhanced
+set terminal pngcairo size 1000, 800 enhanced
 set output 'plots/HO3D.png'
 
 set title "3D Harmonic oscillator states"
