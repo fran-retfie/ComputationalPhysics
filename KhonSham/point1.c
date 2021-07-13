@@ -7,11 +7,15 @@
 
 #define N 1000
 
-const double tEnd = 50;
+//max number of shells
+#define Nmax 4
+
+const double tEnd = 23;
 const double h = tEnd/(double) N;
-const double Estep = 0.0001;
+const double Estep = 0.001;
 double psi[3][N];
 double a[N];
+double Ea[2][Nmax];
 
 double E = 0;
 
@@ -22,8 +26,7 @@ const double rs = 3.93;
 const double rs3 = (rs*rs*rs);
 const double o_rs3 = 1/rs3;
 double Rc;
-//number of electrons
-int Ne = 8;
+
 
 
 
@@ -55,7 +58,7 @@ double integrate(double Ex)
   psi[1][0] = psi[1][2];
   psi[1][1] = psi[1][2];
 
-  return a[N-1]; //(a[N-1]-a[N-2]);
+  return (a[N-1]-a[N-2]);
 }
 
 double CalcNorm()
@@ -70,53 +73,53 @@ double CalcNorm()
 
 int main()
 {
-  //ball radius
-  Rc = cbrt(Ne)*rs;
-
-  psi[1][N-1] = 1;
-
-  double gamma = 1;
-  double gammaOld = 1;
-  double Eold;
-
-  E = -5;
-
-  //simple scan
-  for(; (gamma*gammaOld)>0|(E < Eold+Estep*3); E += Estep)
+  for(int n = 1; n <= Nmax; n++)
   {
-    gammaOld = gamma;
-    gamma = integrate(E);
+    int Ne = 0;
+    for(int i=0; i<n; i++) Ne += 2*(2*i+1);
+
+    Rc = cbrt(Ne)*rs;
+
+    E = -10;
+
+    double gamma = 1;
+    double gammaOld = 1;
+    double Eold = E;
+
+    //simple scan
+    for(; (gamma*gammaOld)>0|(E < Eold+Estep*3); E += Estep)
+    {
+      gammaOld = gamma;
+      gamma = integrate(E);
+    }
+
+    //tangent method
+    double E1 = E - Estep;
+    double E2;
+    for(int j = 0; j<100; j++)
+    {
+      double g = integrate(E);
+      double g1 = integrate(E1);
+      if(g==g1) break;
+      E2 = E;
+      E = (E1*g-E*g1)/(g - g1);
+      if(fabs(E-E1)<1e-15*Estep) break;
+      E1 = E2;
+    }
+
+    for(int j = 0; j < N; j++) psi[2][j] = fr(j*h,0);
+
+    printf("N_e = %i,\t E = %15.14g\n",Ne,E);
+    Ea[1][n] = E1;
+
+    double norm = CalcNorm();
+    for(int j = 0; j < N; j++) psi[1][j] = psi[1][j]/norm;
+
+    char filename[11];
+    sprintf(filename,"dati/plot%02i",n);
+    writeCSVdouble(filename,(double *)psi, 3, N);
   }
-  /*
-  //tangent method
-  double E1 = E - Estep;
-  double E2;
-  for(int j = 0; j<100; j++)
-  {
-    double g = integrate(E);
-    double g1 = integrate(E1);
-    if(g==g1) break;
-    E2 = E;
-    E = (E1*g-E*g1)/(g - g1);
-    if(fabs(E-E1)<1e-14*Estep) break;
-    E1 = E2;
-  }
-  */
 
-  printf("E = %15.14g\n",E);
-
-  double norm = CalcNorm();
-  //for(int j = 0; j < N; j++) psi[1][j] = psi[1][j]/norm;
-
-
-  for(int j = 0; j < N; j++)
-  {
-    psi[2][j] = fr(j*h,0);
-  }
-
-  char filename[11];
-  sprintf(filename,"dati/plot%02i",0);
-  writeCSVdouble(filename,(double *)psi, 3, N);
-
+  writeCSVdouble("dati/energies.csv",(double *)Ea, 2, Nmax);
   return 0;
 }
