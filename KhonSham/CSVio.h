@@ -9,12 +9,15 @@
 #ifndef CVSio
 #define CVSio
 
-#include<stdio.h>
+#include <stdio.h>
+#include <quadmath.h>
+
+#define double_t __float128
 
 int readCSV(void);
 
 int writeCSVint(char *filename ,int *vec, int len1, int len2);
 int writeCSVdouble(char *filename ,double *vec, int len1, int len2);
-
+int writeCSVdouble_t(char *filename ,double_t *vec, int len1, int len2);
 
 #endif

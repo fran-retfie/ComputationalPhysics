@@ -4,8 +4,13 @@
 // Francesco Osti
 // 06/03/2020
 //-----------------------------------------
-#include "stdio.h"
+
 #include "DiffInt.h"
+#include <stdio.h>
+#include <quadmath.h>
+
+#define double_t __float128
+
 
 double RK4int(double t, double x, double y, double h, double (*f)(double, double, double))
 {
@@ -20,6 +25,12 @@ double RK4int(double t, double x, double y, double h, double (*f)(double, double
 double NumerovInt(double x, double y0, double y1, double h, double Ex, double (*f)(double,double))
 {
   double h2 = h*h;
+  return (2*(1-5*h2*f(x,Ex)/12)*y0 - (1+h2*f(x-h,Ex)/12)*y1)/(1+h2*f(x+h,Ex)/12);
+}
+
+double_t NumerovInt_t(double_t x, double_t y0, double_t y1, double_t h, double_t Ex, double_t (*f)(double_t,double_t))
+{
+  double_t h2 = h*h;
   return (2*(1-5*h2*f(x,Ex)/12)*y0 - (1+h2*f(x-h,Ex)/12)*y1)/(1+h2*f(x+h,Ex)/12);
 }
 

@@ -7,6 +7,9 @@
 
 #include "CSVio.h"
 #include <stdio.h>
+#include <quadmath.h>
+
+#define double_t __float128
 
 int readCSV(void)
 {
@@ -37,6 +40,21 @@ int writeCSVdouble(char *filename, double *vec, int len1, int len2)
   {
       fprintf(fp,"\n%d",i+1);
       for(int j=0;j<len1;j++) fprintf(fp,",%lg ", *(vec + len2*j + i) );
+  }
+
+  fclose(fp);
+  return 0;
+}
+
+int writeCSVdouble_t(char *filename, double_t *vec, int len1, int len2)
+{
+  FILE *fp;
+  fp=fopen(filename,"w+");
+
+  for(int i=0;i<len2;i++)
+  {
+      fprintf(fp,"\n%d",i+1);
+      for(int j=0;j<len1;j++) fprintf(fp,",%Qe ", *(vec + len2*j + i) );
   }
 
   fclose(fp);
