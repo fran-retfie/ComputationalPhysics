@@ -20,7 +20,7 @@
 //max of quantum number l
 #define Lmax 4
 
-const double_t tEnd = 40;
+const double_t tEnd = 25;
 const double_t h = tEnd/(double_t) N;
 const double_t Estep = 0.001;
 double_t psi[3][N];
@@ -148,8 +148,8 @@ int main()
         for(int j = 0; j<200; j++)
         {
           E2 = (E+E1)*0.5;
-          g = integrate(E);
           g1 = integrate(E2);
+          g = integrate(E);
           if(g*g1<0)
           {
             //printf("O");
@@ -192,7 +192,7 @@ int main()
     int ne = 0;
     for (int k = 0; k < N; k++) rho[1][k] = 0;
 
-    for (int i = 0; ne < Ne; i++)
+    while(ne < Ne)
     {
       //find minimum energy
       int  jmin = Nmax*Lmax-1;
@@ -212,6 +212,19 @@ int main()
         rho[1][k] += 2*(2*lmin + 1)*val*val;
       }
     }
+
+
+
+    double_t I = 0;
+    for(int j = 1; j < N-1; j+=2)
+    {
+      I += h/3*(rho[1][j-1]+4*rho[1][j]+rho[1][j+1]);
+    }
+    printf("%lg\n", I);
+
+
+
+
 
     sprintf(filename, "dati/density%02i", s);
     writeCSVdouble(filename, (double_t *) rho, 2, N);
