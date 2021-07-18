@@ -9,10 +9,7 @@
 #ifndef CVSio
 #define CVSio
 
-#include <stdio.h>
-#include <quadmath.h>
-
-#define double_t __float128
+#include "doubleDef.h"
 
 int readCSV(void);
 

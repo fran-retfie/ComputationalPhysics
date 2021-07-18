@@ -9,8 +9,6 @@
 #include <stdio.h>
 #include <quadmath.h>
 
-#define double_t __float128
-
 int readCSV(void)
 {
   return 0;

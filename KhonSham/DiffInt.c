@@ -9,9 +9,6 @@
 #include <stdio.h>
 #include <quadmath.h>
 
-#define double_t __float128
-
-
 double RK4int(double t, double x, double y, double h, double (*f)(double, double, double))
 {
   double k1 = (*f)(t, x, y);

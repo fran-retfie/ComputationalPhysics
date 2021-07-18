@@ -5,41 +5,55 @@
 #include <stdlib.h>
 #include "CSVio.h"
 #include "DiffInt.h"
+#include <stdbool.h>
+#include "doubleDef.h"
 
+//grid size
 #define N 1000
 
 //max number of shells
+#define Smax 4
+
+//max of quantum number n
 #define Nmax 4
-#define double_t __float128
 
+//max of quantum number l
+#define Lmax 4
 
-const double_t tEnd = 30;
+const double_t tEnd = 40;
 const double_t h = tEnd/(double_t) N;
 const double_t Estep = 0.001;
 double_t psi[3][N];
 double_t a[N];
-double_t Ea[2][Nmax];
+double_t psimem[Nmax*Lmax][N];
+double_t rho[2][N];
+double_t Ea[3][Nmax*Lmax];
+bool Eavail[Nmax*Lmax];
 
+int n = 1;
+int l = 0;
 double_t E = 0;
 
 //Na atom
 const double_t rs = 3.93;
 //K atom
 //const double_t rs = 4.86;
+
 const double_t rs3 = (rs*rs*rs);
 const double_t o_rs3 = 1/rs3;
 double_t Rc;
-
-
-
+double_t Rc2;
+double_t Rc3;
 
 //effective potential (normalized!!)
 double_t fr(double_t r, double_t Ex)
 {
-  double_t Vext = o_rs3 * ( (r < Rc) ? (r*r - 3*Rc*Rc) : (-2*Rc*Rc*Rc/r) );
-  return (-Vext + Ex);
+  double_t r2 = r*r;
+  double_t Vext = o_rs3 * ( (r < Rc) ? (r2 - 3*Rc2) : (-2*Rc3/r) );
+  return (-Vext -l*(l+1)/r2 + Ex);
 }
 
+//integrate Schrodinger equation with Numerov
 double_t integrate(double_t Ex)
 {
   double_t (*f)(double_t,double_t) = &fr;
@@ -51,7 +65,7 @@ double_t integrate(double_t Ex)
   psi[0][2] = 2*h;
   a[2] = 2*h;
 
-  for(int j = 2; j < N; j++)
+  for(int j = 3; j < N; j++)
   {
     psi[0][j] = h*j;
     a[j] = NumerovInt_t(psi[0][j-1], a[j-1], a[j-2], h, Ex, f);
@@ -64,6 +78,7 @@ double_t integrate(double_t Ex)
   return (a[N-1]-a[N-2]);
 }
 
+//calculate the norm of wavefunction
 double_t CalcNorm()
 {
   double_t I = 0;
@@ -76,79 +91,131 @@ double_t CalcNorm()
 
 int main()
 {
-  for(int n = 1; n <= Nmax; n++)
+  //loop over the first Nmax sheels
+  for(int s = 1; s <= Smax; s++)
   {
+    //calculate the number of electrons and Rc
     int Ne = 0;
-    for(int i=0; i<n; i++) Ne += 2*(2*i+1);
-
+    for(int i=0; i<s; i++) Ne += 2*(2*i+1);
     Rc = cbrtq(Ne)*rs;
-
-    E = -10;
+    Rc2 = Rc*Rc;
+    Rc3 = Rc*Rc*Rc;
 
     double_t gamma = 1;
     double_t gammaOld = 1;
-    double_t Eold = E;
+    double_t Eold;
 
-    for(; (gamma*gammaOld)>0|(E < Eold+Estep*4); E += Estep)
+    //scan on angular momentum
+    for(l = 0; l < Lmax; l++)
     {
-      gammaOld = gamma;
-      gamma = integrate(E);
-      if(E>0) break;
-    }
+      //start research form E = -10
+      E = -10;
 
-    double_t E1 = E - 2*Estep;
-    double_t E2;
-    double_t g;
-    double_t g1;
-
-    /*
-    //tangent method
-    for(int j = 0; j<500; j++)
-    {
-      g = integrate(E);
-      g1 = integrate(E1);
-      //if(j>200) printf("%g\n",g);
-      if(g==g1) break;
-      E2 = E;
-      E = (E1*g-E*g1)/(g - g1);
-      E1 = E2;
-      //if(fabsl(g-g1)<1e-200) break;
-    }
-    */
-
-    //bisection
-    for(int j = 0; j<200; j++)
-    {
-      E2 = (E+E1)*0.5;
-      g = integrate(E);
-      g1 = integrate(E2);
-      if(g*g1<0)
+      //scan on energy over (Ne/2)+1) states
+      for(n = 1; n <= Nmax ; n++)
       {
-        //printf("O");
-        E1 = E2;
+        Eold = E;
+        //simple scan
+        for(; (gamma*gammaOld)>0|(E < Eold+Estep*4); E += Estep)
+        {
+          gammaOld = gamma;
+          gamma = integrate(E);
+          if(E>0) break;
+        }
+
+
+        double_t E1 = E - 2*Estep;
+        double_t E2;
+        double_t g;
+        double_t g1;
+
+        /*
+        //tangent method
+        for(int j = 0; j<500; j++)
+        {
+          g = integrate(E);
+          g1 = integrate(E1);
+          //if(j>200) printf("%g\n",g);
+          if(g==g1) break;
+          E2 = E;
+          E = (E1*g-E*g1)/(g - g1);
+          E1 = E2;
+          //if(fabsl(g-g1)<1e-200) break;
+        }
+        */
+
+        //bisection method
+        for(int j = 0; j<200; j++)
+        {
+          E2 = (E+E1)*0.5;
+          g = integrate(E);
+          g1 = integrate(E2);
+          if(g*g1<0)
+          {
+            //printf("O");
+            E1 = E2;
+          }
+          else
+          {
+            //printf("X");
+            E = E2;
+          }
+          //if(fabs(g-g1)<1e-100) break;
+          //if(j>200) printf("%g\n",E);
+        }
+
+        printf("Ne = %i,\tl = %i,\tn = %i,\tE = %40.39lg\n",Ne, l, n, E);
+        Ea[0][(n-1) + l*Nmax] = (double_t) n;
+        Ea[1][(n-1) + l*Nmax] = (double_t) l;
+        Ea[2][(n-1) + l*Nmax] = E;
+        Eavail[(n-1) + l*Nmax] = false;
+
+        double_t norm = CalcNorm();
+        for(int j = 0; j < N; j++)
+        {
+          psi[1][j] = psi[1][j]/norm;
+          psimem[(n-1) + l*Nmax][j] = psi[1][j];
+        }
+
+        char filename[30];
+        sprintf(filename, "dati/plot%02i%02i%02i", s, n, l);
+        writeCSVdouble(filename, (double_t *) psi, 3, N);
       }
-      else
-      {
-        //printf("X");
-        E = E2;
-      }
-      if(fabsq(g-g1)<1e-100) break;
-      if(j>200) printf("ooo\n");
     }
 
-    for(int j = 0; j < N; j++) psi[2][j] = fr(j*h,0);
+    char filename[30];
+    sprintf(filename, "dati/energies%02i", s);
+    writeCSVdouble(filename, (double_t *) Ea, 3, Nmax*Lmax);
 
-    printf("N_e = %i,\t E = %Qe\n",Ne,E);
-    Ea[1][n] = E1;
+    //now calculate the density here
+    //search for lowest energy states
+    int ne = 0;
+    for (int k = 0; k < N; k++) rho[1][k] = 0;
 
-    double_t norm = CalcNorm();
-    for(int j = 0; j < N; j++) psi[1][j] = psi[1][j]/norm;
+    for (int i = 0; ne < Ne; i++)
+    {
+      //find minimum energy
+      int  jmin = Nmax*Lmax-1;
+      for (int j = 0; j < Nmax*Lmax; j++)
+        if((Ea[2][jmin] > Ea[2][j]) && !Eavail[j]) jmin = j;
+      Eavail[jmin] = true;
 
-    char filename[11];
-    sprintf(filename,"dati/plot%02i",n);
-    writeCSVdouble_t(filename,(double_t *)psi, 3, N);
+      int nmin = (int) Ea[0][jmin];
+      int lmin = (int) Ea[1][jmin];
+      ne += 2*(2*lmin + 1);
+      printf("ne = %i,\tn = %i,\tl = %i,\tE = %lg\n", ne, nmin, lmin, Ea[2][jmin]);
+
+      for (int k = 0; k < N; k++)
+      {
+        double_t val = psimem[(nmin-1) + lmin*Nmax][k];
+        rho[0][k] = psi[0][k];
+        rho[1][k] += 2*(2*lmin + 1)*val*val;
+      }
+    }
+
+    sprintf(filename, "dati/density%02i", s);
+    writeCSVdouble(filename, (double_t *) rho, 2, N);
+    printf("\n");
   }
-
-  writeCSVdouble_t("dati/energies.csv",(double_t *)Ea, 2, Nmax);
   return 0;
 }

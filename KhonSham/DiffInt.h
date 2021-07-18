@@ -8,10 +8,7 @@
 #ifndef DiffInt
 #define DiffInt
 
-#include <stdio.h>
-#include <quadmath.h>
-
-#define double_t __float128
+#include "doubleDef.h"
 
 double RK4int(double t, double x, double y, double h, double (*f)(double, double, double));
 
