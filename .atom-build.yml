@@ -1,1 +1,1 @@
-cmd: (cd KhonSham && make point1)
+cmd: (cd ES4-KhonSham && make point4)
