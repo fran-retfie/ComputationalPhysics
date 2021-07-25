@@ -20,6 +20,9 @@
 //max of quantum number l
 #define Lmax 4
 
+const int Nelist[Smax] = {2,8,18,20};
+const int nnList[Smax] = {0,1*Nmax,2*Nmax,1};
+
 const double_t tEnd = 25;
 const double_t h = tEnd/(double_t) N;
 const double_t Estep = 0.001;
@@ -97,8 +100,8 @@ int main()
   for(int s = 1; s <= Smax; s++)
   {
     //calculate the number of electrons and Rc
-    int Ne = 0;
-    for(int i=0; i<s; i++) Ne += 2*(2*i+1);
+
+    int Ne = Nelist[s-1];
     Rc = cbrtq(Ne)*rs;
     Rc2 = Rc*Rc;
     Rc3 = Rc*Rc*Rc;
@@ -194,13 +197,20 @@ int main()
     int ne = 0;
     for (int k = 0; k < N; k++) rho[1][k] = 0;
 
+    int nn = 0;
+
     while(ne < Ne)
     {
+      /*
       //find minimum energy
       int  jmin = Nmax*Lmax-1;
       for (int j = 0; j < Nmax*Lmax; j++)
         if((Ea[2][jmin] > Ea[2][j]) && !Eavail[j]) jmin = j;
       Eavail[jmin] = true;
+      */
+
+      int jmin = nnList[nn];
+      nn++;
 
       int nmin = (int) Ea[0][jmin];
       int lmin = (int) Ea[1][jmin];

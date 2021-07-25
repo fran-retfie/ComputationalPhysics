@@ -10,6 +10,7 @@ set ylabel "{/Symbol r}(r)"
 set key autotitle columnheader
 
 filename(n) = sprintf("dati/density%02i", n)
-plot for [n=1:4] filename(n) using 2:3 with lines #title (sprintf("n = %i", n))
+#plot for [n=1:4] filename(n) using 2:3 with lines #title (sprintf("n = %i", n))
+plot for [n=1:4] filename(n) using 2:4 with lines #title (sprintf("n = %i", n))
 
 pause -1

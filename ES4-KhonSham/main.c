@@ -15,18 +15,23 @@
 #define Smax 4
 
 //max of quantum number n
-#define Nmax 4
+#define Nmax 2
 
 //max of quantum number l
-#define Lmax 4
+#define Lmax 3
+
+const int Nelist[Smax] = {2,8,18,20};
+const int nnList[Smax] = {0,1*Nmax,2*Nmax,1};
+
 
 const double_t tEnd = 25;
 const double_t h = tEnd/(double_t) N;
+const double_t tStart = h;
 const double_t Estep = 0.001;
 double_t psi[3][N];
 double_t a[N];
 double_t psimem[Nmax*Lmax][N];
-double_t rho[2][N];
+double_t rho[3][N];
 double_t Ea[3][Nmax*Lmax];
 bool Eavail[Nmax*Lmax];
 
@@ -60,16 +65,14 @@ double_t integrate(double_t Ex)
 {
   double_t (*f)(double_t,double_t) = &fr;
 
-  psi[0][0] = 0;
-  a[0] = 0;
-  psi[0][1] = h;
-  a[1] = h;
-  psi[0][2] = 2*h;
-  a[2] = 2*h;
+  psi[0][0] = tStart;
+  a[0] = h;
+  psi[0][1] = tStart + h;
+  a[1] = 2*h;
 
-  for(int j = 3; j < N; j++)
+  for(int j = 2; j < N; j++)
   {
-    psi[0][j] = h*j;
+    psi[0][j] = tStart + h*j;
     a[j] = NumerovInt_t(psi[0][j-1], a[j-1], a[j-2], h, Ex, f);
     psi[1][j] = a[j];
   }
@@ -91,14 +94,54 @@ double_t CalcNorm()
   return sqrtq(I);
 }
 
+//calculate the Hartree term
+double_t CalcHartree(int nr)
+{
+  const double_t coeff3 = 3/8*h;
+  const double_t coeff2 = h/3;
+
+  double_t Ia = 0;
+  int j = 0;
+  while(j < nr-2)
+  {
+    if(1==0) //(j < n-3) //3/8 Simpson rule
+    {
+      Ia += coeff3*( rho[0][j]*rho[0][j]*rho[1][j] + 3*rho[0][j+1]*rho[0][j+1]*rho[1][j+1] + 3*rho[0][j+2]*rho[0][j+2]*rho[1][j+2] + rho[0][j+3]*rho[0][j+3]*rho[1][j+3] );
+      j += 3;
+    }
+    else //two point Simpson rule
+    {
+      Ia += coeff2*( rho[0][j]*rho[0][j]*rho[1][j] + 4*rho[0][j+1]*rho[0][j+1]*rho[1][j+1] + rho[0][j+2]*rho[0][j+2]*rho[1][j+2] );
+      j += 2;
+    }
+  }
+
+  double_t Ib = 0;
+  while(j < N-1)
+  {
+    if(1==0) //(j < N-3) //3/8 Simpson rule
+    {
+      Ib += coeff3*(rho[0][j]*rho[1][j] + 3*rho[0][j+1]*rho[1][j+1] + 3*rho[0][j+2]*rho[1][j+2] + rho[0][j+3]*rho[1][j+3]);
+      j += 3;
+    }
+    else //two point Simpson rule
+    {
+      Ib += coeff2*(rho[0][j]*rho[1][j] + 4*rho[0][j+1]*rho[1][j+1] + rho[0][j+2]*rho[1][j+2]);
+      j += 2;
+    }
+  }
+
+  return 4*M_PI * (Ia/rho[0][nr] + Ib);
+}
+
 int main()
 {
   //loop over the first Nmax sheels
   for(int s = 1; s <= Smax; s++)
   {
     //calculate the number of electrons and Rc
-    int Ne = 0;
-    for(int i=0; i<s; i++) Ne += 2*(2*i+1);
+
+    int Ne = Nelist[s-1];
     Rc = cbrtq(Ne)*rs;
     Rc2 = Rc*Rc;
     Rc3 = Rc*Rc*Rc;
@@ -177,6 +220,8 @@ int main()
         {
           psi[1][j] = psi[1][j]/norm;
           psimem[(n-1) + l*Nmax][j] = psi[1][j];
+
+          psi[2][j] = fr(psi[0][j], E);
         }
 
         char filename[30];
@@ -194,20 +239,29 @@ int main()
     int ne = 0;
     for (int k = 0; k < N; k++) rho[1][k] = 0;
 
+    int nn = 0;
+
+//---------------------------density stuff---------------------------------------
+
     while(ne < Ne)
     {
+      /*
       //find minimum energy
       int  jmin = Nmax*Lmax-1;
       for (int j = 0; j < Nmax*Lmax; j++)
         if((Ea[2][jmin] > Ea[2][j]) && !Eavail[j]) jmin = j;
       Eavail[jmin] = true;
+      */
+
+      int jmin = nnList[nn];
+      nn++;
 
       int nmin = (int) Ea[0][jmin];
       int lmin = (int) Ea[1][jmin];
       ne += 2*(2*lmin + 1);
       printf("ne = %i,\tn = %i,\tl = %i,\tE = %lg\n", ne, nmin, lmin, Ea[2][jmin]);
 
-      for (int k = 0; k < N; k++)
+      for(int k = 0; k < N; k++)
       {
         double_t val = psimem[(nmin-1) + lmin*Nmax][k];
         rho[0][k] = psi[0][k];
@@ -215,9 +269,11 @@ int main()
       }
     }
 
+    for(int k = 0; k < N; k++) rho[2][k] = CalcHartree(k);
+
     sprintf(title, "N_e = %i", ne);
     sprintf(filename, "dati/density%02i", s);
-    writeCSVdouble_t(filename, (double_t *) rho, 2, N, title);
+    writeCSVdouble_t(filename, (double_t *) rho, 3, N, title);
     printf("\n");
   }
   return 0;
