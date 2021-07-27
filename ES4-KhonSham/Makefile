@@ -1,2 +1,2 @@
 point4: main.c CSVio.c DiffInt.c
-	gcc -o sim main.c CSVio.c DiffInt.c -lm -lquadmath -I. -Ofast
+	gcc -o sim main.c CSVio.c DiffInt.c -lm -lgsl -lgslcblas -lquadmath -I. -Ofast

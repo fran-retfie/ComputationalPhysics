@@ -3,9 +3,11 @@
 #include <math.h>
 #include <quadmath.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <gsl/gsl_math.h>
+
 #include "CSVio.h"
 #include "DiffInt.h"
-#include <stdbool.h>
 #include "doubleDef.h"
 
 //------------------------------------------------------------------------------
@@ -21,6 +23,9 @@
 
 //max of quantum number l
 #define Lmax 3
+
+//max number of iteration
+#define Qmax 10
 
 const int Nelist[Smax] = {2,8,18,20};
 const int nnList[Smax] = {0,1*Nmax,2*Nmax,1};
@@ -97,9 +102,6 @@ double_t integrate(double_t Ex)
     psi[1][j] = NumerovInt_t(j-1, psi[1][j-1], psi[1][j-2], h, Ex, f);
   }
 
-  psi[1][0] = psi[1][2];
-  psi[1][1] = psi[1][2];
-
   return (psi[1][N-1] - psi[1][N-2]);
 }
 
@@ -109,9 +111,9 @@ double_t CalcNorm()
   double_t I = 0;
   for(int j = 1; j < N-1; j+=2)
   {
-    I += h/3*(psi[1][j-1]*psi[1][j-1]+4*psi[1][j]*psi[1][j]+psi[1][j+1]*psi[1][j+1]);
+    I += (get_r(j-1)*get_r(j-1)*psi[1][j-1]*psi[1][j-1] + 4*get_r(j)*get_r(j)*psi[1][j]*psi[1][j] + get_r(j+1)*get_r(j+1)*psi[1][j+1]*psi[1][j+1]);
   }
-  return sqrtq(I);
+  return sqrtq(h/3*I);
 }
 
 //calculate the Hartree term
@@ -151,7 +153,7 @@ double_t CalcHartree(int nr)
     }
   }
 
-  return 4*M_PI * (Ia/rho[0][nr] + Ib);
+  return 2*M_PI * (Ia/rho[0][nr] + Ib);
 }
 
 //------------------------------------------------------------------------------
@@ -168,7 +170,7 @@ int main()
     Rc3 = Rc*Rc*Rc;
 
     //khon-sham loop
-    for (q = 0; q < 1; q++)
+    for (q = 0; q < Qmax; q++)
     {
 
       //scan on angular momentum
@@ -237,13 +239,17 @@ int main()
           Ea[2][(n-1) + l*Nmax] = E;
           //Eavail[(n-1) + l*Nmax] = false;
 
-          double_t norm = CalcNorm();
+          //save the potential
+          for (int i = 0; i < N; i++) psi[2][i] = fr(i, 0);
+
+          //find radial wavefunction
+          for(int j = 0; j < N; j++) psi[1][j] = psi[1][j]/psi[0][j];
+
+          double_t norm = CalcNorm() * 2*M_SQRTPI; //normalize to 1/sqrt(4*pi)
           for(int j = 0; j < N; j++)
           {
             psi[1][j] = psi[1][j]/norm;
             psimem[(n-1) + l*Nmax][j] = psi[1][j];
-
-            psi[2][j] = fr(j, E);
           }
 
           sprintf(filename, "dati/plot%02i%02i%02i", s, n, l);
@@ -259,7 +265,7 @@ int main()
       //now calculate the density here
       //search for lowest energy states
       ne = 0;
-      //for (int k = 0; k < N; k++) rho[1][k] = 0;
+      for (int k = 0; k < N; k++) rho[1][k] = 0;
       nn = 0;
 
       while(ne < Ne)
