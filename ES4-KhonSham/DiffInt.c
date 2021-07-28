@@ -28,7 +28,9 @@ double NumerovInt(double x, double y0, double y1, double h, double Ex, double (*
 double_t NumerovInt_t(int k, double_t y0, double_t y1, double_t h, double_t Ex, double_t (*f)(int,double_t))
 {
   double_t h2 = h*h;
-  return (2*(1-5*h2*f(k,Ex)/12)*y0 - (1+h2*f(k-1,Ex)/12)*y1)/(1+h2*f(k+1,Ex)/12);
+  static const double_t o_12 = 1/12;
+
+  return (2*(1-5*h2*f(k,Ex)*o_12)*y0 - (1+h2*f(k-1,Ex)*o_12)*y1)/(1+h2*f(k+1,Ex)*o_12);
 }
 
 double EulerInt(double t, double x, double y, double h, double (*f)(double, double, double))
