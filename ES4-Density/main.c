@@ -16,7 +16,7 @@
 #define N 1000
 
 //max number of shells
-#define Smax 4
+#define Smax 6
 
 //max of quantum number n
 #define Nmax 4
@@ -24,8 +24,8 @@
 //max of quantum number l
 #define Lmax 4
 
-const int Nelist[Smax] = {2,8,18,20};
-const int nnList[Smax] = {0,1*Nmax,2*Nmax,1};
+const int Nelist[Smax] = {2,8,18,20,26,40};
+const int nnList[Smax] = {0,1*Nmax,2*Nmax,1,1+1*Nmax,3*Nmax};
 
 
 const double_t tEnd = 25;
@@ -37,7 +37,7 @@ double_t psi[3][N];
 double_t psimem[Nmax*Lmax][N];
 double_t rho[2][N];
 double_t Ea[3][Nmax*Lmax];
-//bool Eavail[Nmax*Lmax];
+bool Eavail[Nmax*Lmax];
 
 char title[30];
 char filename[30];
@@ -252,6 +252,7 @@ int main()
     //search for lowest energy states
     ne = 0;
     for (int k = 0; k < N; k++) rho[1][k] = 0;
+    for (int k = 0; k < Nmax*Lmax; k++) Eavail[k] = false;
     nn = 0;
 
     while(ne < Ne)

@@ -15,17 +15,16 @@
 //grid size
 #define N 1000
 //max number of shells
-#define Smax 4
+#define Smax 6
 //max of quantum number n
 #define Nmax 2
 //max of quantum number l
-#define Lmax 3
+#define Lmax 4
 //max number of iteration
-#define Qmax 10
+#define Qmax 40
 
-const int Nelist[Smax] = {2,8,18,20};
-const int nnList[Smax] = {0,1*Nmax,2*Nmax,1};
-
+const int Nelist[Smax] = {2,8,18,20,26,40};
+const int nnList[Smax] = {0,1*Nmax,2*Nmax,1,1+1*Nmax,3*Nmax};
 
 const double_t tEnd = 25;
 const double_t h = tEnd/(double_t) N;
@@ -50,6 +49,9 @@ double_t E = 0;
 
 int ne;
 int nn;
+
+//state mixing coefficient
+const double_t mix = 1;
 
 //correlation terms constants
 const double_t A = 0.031091;
@@ -103,9 +105,9 @@ double_t fr(int k)
   double_t rsenum = 0.5*beta1*rse05 + beta2*rse + 1.5*beta3*rse15 + 2*beta4*rse2;
   double_t rsefac = beta1*rse05 + beta2*rse + beta3*rse15 + beta4*rse2;
 
-  double_t Vext = ( (r < Rc) ? (C1*(r2 - 3*Rc2)) : (-Ne/r) );
+  double_t Vext =  ( (r < Rc) ? (C1*(r2 - 3*Rc2)) : (-Ne/r) );
   double_t Vhart = (q != 0) ? rho[2][k] : 0;
-  double_t Vexc = (q != 0) ? C2*cbrtq(rho[1][k]) : 0;
+  double_t Vexc =  (q != 0) ? C2*cbrtq(rho[1][k]) : 0;
   double_t Vcorr = (q != 0) ? -C3*( (2*alpha1*rs+3)*logq(1+1/(2*A*rsefac)) + (alpha1*rs+1)*rsenum/((2*A*rsefac+1)*rsefac) ): 0;
 
   return (-Vext -l*(l+1)/r2 - Vhart - Vexc - Vcorr);
@@ -167,7 +169,7 @@ double_t CalcHartree(int nr)
     }
   }
 
-  return 2*M_PI * (Ia/rho[0][nr] + Ib);
+  return 4*M_PI * (Ia/rho[0][nr] + Ib);
 }
 
 //------------------------------------------------------------------------------
@@ -175,6 +177,7 @@ double_t CalcHartree(int nr)
 int main()
 {
   for(int j = 0; j < N; j++) psi[0][j] = get_r(j);
+  for (int k = 0; k < N; k++) rho[1][k] = 0;
 
   //loop over the first Nmax sheels
   for(int s = 1; s <= Smax; s++)
@@ -271,8 +274,8 @@ int main()
             psimem[(n-1) + l*Nmax][j] = psi[1][j];
           }
 
-          //sprintf(filename, "dati/plot%02i%02i%02i", s, n, l);
-          //writeCSVdouble_t(filename, (double_t *) psi, 3, N, title);
+          sprintf(filename, "dati/plot%02i%02i%02i", s, n, l);
+          writeCSVdouble_t(filename, (double_t *) psi, 3, N, title);
         }
       }
 
@@ -284,7 +287,7 @@ int main()
       //now calculate the density here
       //search for lowest energy states
       ne = 0;
-      for (int k = 0; k < N; k++) rho[1][k] = 0;
+      for (int k = 0; k < N; k++) rho[1][k] = (1-mix) * rho[1][k];
       nn = 0;
 
       while(ne < Ne)
@@ -309,7 +312,7 @@ int main()
         {
           double_t val = psimem[(nmin-1) + lmin*Nmax][k];
           rho[0][k] = psi[0][k];
-          rho[1][k] += 2*(2*lmin + 1)*val*val;
+          rho[1][k] += 2*(2*lmin + 1)*val*val * mix;
         }
       }
 
