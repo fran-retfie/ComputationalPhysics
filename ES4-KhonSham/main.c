@@ -21,12 +21,12 @@
 //max of quantum number l
 #define Lmax 4
 //max number of iteration
-#define Qmax 40
+#define Qmax 150
 
 const int Nelist[Smax] = {2,8,18,20,26,40};
 const int nnList[Smax] = {0,1*Nmax,2*Nmax,1,1+1*Nmax,3*Nmax};
 
-const double_t tEnd = 25;
+const double_t tEnd = 20;
 const double_t h = tEnd/(double_t) N;
 const double_t tStart = h;
 const double_t Estep = 0.001;
@@ -36,6 +36,7 @@ double_t Vext[N];
 double_t psi[3][N];
 double_t psimem[Nmax*Lmax][N];
 double_t rho[4][N];
+double_t rhoOld[N];
 double_t Ea[3][Nmax*Lmax];
 //bool Eavail[Nmax*Lmax];
 
@@ -51,7 +52,7 @@ int ne;
 int nn;
 
 //state mixing coefficient
-const double_t mix = 1;
+const double_t mix = 0.8;
 
 //correlation terms constants
 const double_t A = 0.031091;
@@ -110,7 +111,7 @@ double_t fr(int k)
   double_t Vexc =  (q != 0) ? C2*cbrtq(rho[1][k]) : 0;
   double_t Vcorr = (q != 0) ? -C3*( (2*alpha1*rs+3)*logq(1+1/(2*A*rsefac)) + (alpha1*rs+1)*rsenum/((2*A*rsefac+1)*rsefac) ): 0;
 
-  return (-Vext -l*(l+1)/r2 - Vhart - Vexc - Vcorr);
+  return ( -l*(l+1)/r2 - 2*( Vhart + Vexc + Vcorr + Vext));
 }
 
 //integrate Schrodinger equation with Numerov
@@ -287,7 +288,8 @@ int main()
       //now calculate the density here
       //search for lowest energy states
       ne = 0;
-      for (int k = 0; k < N; k++) rho[1][k] = (1-mix) * rho[1][k];
+      for (int k = 0; k < N; k++) rhoOld[k] = rho[1][k];
+      for (int k = 0; k < N; k++) rho[1][k] = 0;
       nn = 0;
 
       while(ne < Ne)
