@@ -4,7 +4,6 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_blas.h>
-#include "CSVio.h"
 
 double pi=4.*atan(1.);
 int n=4;//# of basis functions
@@ -60,19 +59,25 @@ void H(gsl_matrix *Hm)
   return;
 }
 
-//Direct matrix (already calculated with "doubleInt.c": stored in "Dr_terms.csv")
-// void Direct(int n, float Dr[n][n], char *filename)
-// {
-//   readCSV(n,n,Dr,filename);
-//   return;
-// }
+//Direct matrix element
+double D_pq(int p, int q, int r, int s)
+{
+  double pi5 = pi*pi*pi*pi*pi;
+  double tmp = alpha[p] + alpha[q] + alpha[r] + alpha[s];
+  double V_pqrs = 2.*sqrt(pi5)/((alpha[p] + alpha[s])*(alpha[r] + alpha[q])*sqrt(tmp));
 
-//Exchange matrix (already calculated with "doubleInt.c": stored in "Ex_terms.csv")
-// void Exch(int n, float Ex[n][n], char *filename)
-// {
-//   readCSV(n,n,Ex,filename);
-//   return;
-// }
+  return V_pqrs;
+}
+
+//Exchange matrix element
+double E_pq(int p, int q, int r, int s)
+{
+  double pi5 = pi*pi*pi*pi*pi;
+  double tmp = alpha[p] + alpha[q] + alpha[r] + alpha[s];
+  double V_pqrs = -2.*sqrt(pi5)/((alpha[p] + alpha[q])*(alpha[r] + alpha[s])*sqrt(tmp));
+
+  return V_pqrs;
+}
 
 //Fock matrix
 void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
@@ -82,23 +87,13 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
   double F_pq = 0;
   double P_rs = 0;
 
-  // build Exchange and Direct matrices
-  float Ex_pq[n][n];
-  float Dr_pq[n][n];
-  char filename[50];
-
   for(p=0;p<n;p++)
   {
     // printf("p=%d\n", p);
     for(q=0;q<=p;q++)
     {
-      // printf("-- p = %d -- q = %d --\n",p, q);
-      sprintf(filename,"Exc/p%02iq%02i.csv", p,q);
-      readCSV(n,n,Ex_pq,filename);
-      sprintf(filename,"Dir/p%02iq%02i.csv", p,q);
-      readCSV(n,n,Dr_pq,filename);
-
       F_pq=0;
+      // printf("q=%d\n", q);
       for(r=0;r<p;r++)
       {
         // printf("r=%d\n", r);
@@ -106,8 +101,6 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
         {
           for(s=0;s<r;s++)
           {
-            // Ex_pq[r][s]=0;
-            // Dr_pq[r][s]=0;
             P_rs = 0;
             // printf("s=%d\n", s);
             for(k=0;k<=Z/2;k++)
@@ -117,7 +110,7 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
               P_rs = P_rs + C_kr*C_ks;//NOTE: sum over k up to Z/2
             }
             // printf("%f\n", P_rs);
-            F_pq = F_pq + P_rs*(Dr_pq[r][s] + Ex_pq[r][s]);
+            F_pq = F_pq + P_rs*(D_pq(p,q,r,s) + E_pq(p,q,r,s));
           }
         }
         else if(r==p-1)
@@ -133,12 +126,12 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
               P_rs = P_rs + C_kr*C_ks;//sum over k up to N/2 (NOTA: quindi le ultime due righe dei coefficienti non servono a niente?)
             }
             // printf("%f\n", P_rs);
-            F_pq = F_pq + P_rs*(Dr_pq[r][s] + 0.5*Ex_pq[r][s]);
+            F_pq = F_pq + P_rs*(D_pq(p,q,r,s) + E_pq(p,q,r,s));
           }
         }
       }
       H_pq = gsl_matrix_get(Hm,p,q);
-      F_pq = F_pq + 2*H_pq;
+      F_pq = F_pq + H_pq;
       // printf("p=%d, q=%d, F_pq=%f\n",p,q, F_pq);
       gsl_matrix_set(Fm,p,q,F_pq);
       gsl_matrix_set(Fm,q,p,F_pq);
@@ -222,13 +215,13 @@ int main()
   //self-consistent procedure
   char s={'S'};char h={'H'};char c_n={'C'};char c_o={'O'};char f={'F'};
   printMatrix(s,Sm);
-  double alfa = 1e-3;//coefficient in the variation of the coefficients
+  double alfa = 9e-5;//coefficient in the variation of the coefficients
   printf("alfa = %f\n", alfa);
   double check = 1;
   double convergence = 1e-10;
   double tmp,norm,tmp2;
   double evec[n][n], eval[n];
-  int i,j,k;
+  int i,j;
   //first iteration (to set the min of energy)
   F(Fm,Hm,C_new); //build Fock matrix
   printMatrix(f,Fm);
@@ -236,7 +229,6 @@ int main()
   tmp = fabs(minE(Ee));//POSSIBLE PROBLEM IF ALREADY SMALLER THAN convergence
   printf("minE = %f       check = %f\n", tmp, check);
   printMatrix(s,Sm);
-  k=0;
   while(check>convergence)
   {
     //compute new coefficients as a small variation of
@@ -245,21 +237,28 @@ int main()
       for(j=0;j<n;j++)
       {
         tmp2 = alfa*gsl_matrix_get(C_new,i,j) + (1-alfa)*gsl_matrix_get(C_old,i,j);
+        // printf("tmp2 = %f\n", tmp2);
         gsl_matrix_set(C_new,i,j,tmp2);
+        //norm = gsl_matrix_norm1(C_new);
       }
     }
     S(Sm); //build overlap matrix
     H(Hm); //build Hamiltonian
 
+    // printMatrix(s,Sm);
+    // printMatrix(h,Hm);
+    // printMatrix(c_n,C_new);
+    // printMatrix(c_o,C_old);
+
     gsl_matrix_memcpy(C_old,C_new);//update C_old
-    printf("----------------------%d-------------------------\n", k);
     F(Fm,Hm,C_new); //build Fock matrix
+    // printMatrix(f,Fm);
     RGSDE(Fm,Sm,C_new,Ee); //Solve the generalized eigrnvalue problem
     tmp2 = fabs(minE(Ee));
     check = fabs(tmp2-tmp);
     tmp = tmp2;
+    // check = 0;
     printf("minE = %f       check = %e\n", minE(Ee), check);
-    k++;
   }
 
 
