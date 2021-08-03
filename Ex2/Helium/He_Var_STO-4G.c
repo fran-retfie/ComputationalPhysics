@@ -221,9 +221,9 @@ int main()
 
   //self-consistent procedure
   char s={'S'};char h={'H'};char c_n={'C'};char c_o={'O'};char f={'F'};
-  printMatrix(s,Sm);
+  // printMatrix(s,Sm);
   double alfa = 1e-3;//coefficient in the variation of the coefficients
-  printf("alfa = %f\n", alfa);
+  printf("alfa = %e\n", alfa);
   double check = 1;
   double convergence = 1e-10;
   double tmp,norm,tmp2;
@@ -231,11 +231,11 @@ int main()
   int i,j,k;
   //first iteration (to set the min of energy)
   F(Fm,Hm,C_new); //build Fock matrix
-  printMatrix(f,Fm);
+  // printMatrix(f,Fm);
   RGSDE(Fm,Sm,C_new,Ee); //Solve the generalized eigrnvalue problem
   tmp = fabs(minE(Ee));//POSSIBLE PROBLEM IF ALREADY SMALLER THAN convergence
-  printf("minE = %f       check = %f\n", tmp, check);
-  printMatrix(s,Sm);
+  // printf("minE = %f       check = %f\n", tmp, check);
+  // printMatrix(s,Sm);
   k=0;
   while(check>convergence)
   {
@@ -252,35 +252,35 @@ int main()
     H(Hm); //build Hamiltonian
 
     gsl_matrix_memcpy(C_old,C_new);//update C_old
-    printf("----------------------%d-------------------------\n", k);
+    // printf("----------------------%d-------------------------\n", k);
     F(Fm,Hm,C_new); //build Fock matrix
     RGSDE(Fm,Sm,C_new,Ee); //Solve the generalized eigrnvalue problem
     tmp2 = fabs(minE(Ee));
     check = fabs(tmp2-tmp);
     tmp = tmp2;
-    printf("minE = %f       check = %e\n", minE(Ee), check);
+    // printf("minE = %f       check = %e\n", minE(Ee), check);
     k++;
   }
 
+  printf("------ minE = %f ------\n", minE(Ee));
 
 
 
 
-
-  for(i=0;i<n;i++)
-  {
-    for(j=0;j<n;j++)
-    {
-      evec[i][j] = gsl_matrix_get(C_new,i,j);
-      printf("%f  ", evec[i][j]);
-    }
-    printf("\n");
-  }
-  printf("----------------------------------\n");
-  for(i=0;i<n;i++)
-  {
-    eval[i] = gsl_vector_get(Ee,i);
-    printf("%f  ", eval[i]);
-    printf("\n");
-  }
+  // for(i=0;i<n;i++)
+  // {
+  //   for(j=0;j<n;j++)
+  //   {
+  //     evec[i][j] = gsl_matrix_get(C_new,i,j);
+  //     printf("%f  ", evec[i][j]);
+  //   }
+  //   printf("\n");
+  // }
+  // printf("----------------------------------\n");
+  // for(i=0;i<n;i++)
+  // {
+  //   eval[i] = gsl_vector_get(Ee,i);
+  //   printf("%f  ", eval[i]);
+  //   printf("\n");
+  // }
 }
