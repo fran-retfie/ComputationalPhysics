@@ -10,7 +10,7 @@ double alpha[4] = {14.899983, 2.726485, 0.757447, 0.251390};
 int n = 4;
 double Chi(double r, double a)
 {
-  double r2 = (r-1)*(r-1);//1 va sostituito con distanza media orbitale
+  double r2 = r*r;//1 va sostituito con distanza media orbitale
 
   return (exp(-a*r2));
 }

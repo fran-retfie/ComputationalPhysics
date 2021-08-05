@@ -5,13 +5,14 @@
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_blas.h>
 #include "CSVio.h"
+
 double pi=4.*atan(1.);
 int n=4;//# of basis functions
 int Z=2;//# of electrons
 //gaussians exponents
 double alpha[4] = {14.899983, 2.726485, 0.757447, 0.251390};
 
-//gaussian basis (unused)
+//gaussian basis
 double Chi(double r, double alpha)
 {
   double r2 = r*r;
@@ -19,44 +20,8 @@ double Chi(double r, double alpha)
   return (exp(-alpha*r2));
 }
 
-void matrixProduct(gsl_matrix *A, gsl_matrix *B, gsl_matrix *Out)
-{
-  int i,j,k;
-  double a_ij,b_ji,tmp;
-  for(i=0;i<n;i++)//Out row
-  {
-    for(j=0;j<n;j++)//Out column
-    {
-      tmp = 0;
-      for(k=0;k<n;k++)
-      {
-        a_ij = gsl_matrix_get(A,i,k);
-        b_ji = gsl_matrix_get(B,k,j);
-        tmp += a_ij*b_ji;
-      }
-      gsl_matrix_set(Out,i,j,tmp);
-    }
-  }
-}
-
-void printMatrix(char matrixName, gsl_matrix *m)
-{
-  int i,j;
-  double evec[n][n];
-  printf("%c matrix: \n", matrixName);
-  for(i=0;i<n;i++)
-  {
-    for(j=0;j<n;j++)
-    {
-      evec[i][j] = gsl_matrix_get(m,i,j);
-      printf("%f  ", evec[i][j]);
-    }
-    printf("\n");
-  }
-  printf("----------------------------------\n");
-}
 //overlap matrix (already integrated for GTO)
-void S(gsl_matrix *Sm, gsl_matrix *evec)
+void S(gsl_matrix *Sm)
 {
   int p,q;
   double tmp;
@@ -65,29 +30,12 @@ void S(gsl_matrix *Sm, gsl_matrix *evec)
     for(q=0;q<n;q++)
     {
       tmp = sqrt((pi/(alpha[p] + alpha[q]))*(pi/(alpha[p] + alpha[q]))*(pi/(alpha[p] + alpha[q])));
+      // printf("%f\n", tmp);
       gsl_matrix_set(Sm,p,q,tmp);
+      // printf("gslMatrix: %f\n", gsl_matrix_get(Sm,p,q));
+      // printf("-------------------------------------------\n");
     }
   }
-
-  //diagonalization
-  gsl_vector *eval = gsl_vector_alloc(n);
-  gsl_vector_set_zero(eval);
-  gsl_matrix_set_zero(evec);
-  gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(n);
-  gsl_eigen_symmv(Sm,eval,evec,w);
-  gsl_matrix_set_zero(Sm);
-  tmp=1;
-  for(p=0;p<n;p++)
-  {
-    tmp = tmp*gsl_vector_get(eval,p);
-    gsl_matrix_set(Sm,p,p,gsl_vector_get(eval,p));
-  }
-
-  tmp = 1./sqrt(tmp);
-
-  //normalization
-  gsl_matrix_scale(Sm,tmp);
-
   return;
 }
 
@@ -112,15 +60,9 @@ void H(gsl_matrix *Hm)
   return;
 }
 
-// double doubleInt()
-
-
-//Direct matrix element POSSIBILE PROBLEMA: integrale inserito corretto?
 double D_pq(int p, int q, int r, int s)
 {
-  double pi5 = pi*pi*pi*pi*pi;
-  double tmp = alpha[p] + alpha[q] + alpha[r] + alpha[s];
-  double V_pqrs = 2.*sqrt(pi5)/((alpha[p] + alpha[s])*(alpha[r] + alpha[q])*sqrt(tmp));
+  double V_pqrs = 2.*pi/((alpha[p] + alpha[q])*(alpha[r] + alpha[s]));
 
   return V_pqrs;
 }
@@ -128,9 +70,7 @@ double D_pq(int p, int q, int r, int s)
 //Exchange matrix element POSSIBILE PROBLEMA: integrale inserito corretto?
 double E_pq(int p, int q, int r, int s)
 {
-  double pi5 = pi*pi*pi*pi*pi;
-  double tmp = alpha[p] + alpha[q] + alpha[r] + alpha[s];
-  double V_pqrs = 2.*sqrt(pi5)/((alpha[p] + alpha[q])*(alpha[r] + alpha[s])*sqrt(tmp));
+  double V_pqrs = 2.*pi/((alpha[p] + alpha[s])*(alpha[r] + alpha[q]));
 
   return V_pqrs;
 }
@@ -143,23 +83,13 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
   double F_pq = 0;
   double P_rs = 0;
 
-  // build Exchange and Direct matrices
-  float Ex_pq[n][n];
-  float Dr_pq[n][n];
-  char filename[50];
-
   for(p=0;p<n;p++)
   {
     // printf("p=%d\n", p);
     for(q=0;q<=p;q++)
     {
-      // printf("-- p = %d -- q = %d --\n",p, q);
-      sprintf(filename,"Exc/p%02iq%02i.csv", p,q);
-      readCSV(n,n,Ex_pq,filename);
-      sprintf(filename,"Dir/p%02iq%02i.csv", p,q);
-      readCSV(n,n,Dr_pq,filename);
-
-      F_pq=0;
+      F_pq = 0;
+      // printf("q=%d\n", q);
       for(r=0;r<p;r++)
       {
         // printf("r=%d\n", r);
@@ -167,8 +97,6 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
         {
           for(s=0;s<r;s++)
           {
-            // Ex_pq[r][s]=0;
-            // Dr_pq[r][s]=0;
             P_rs = 0;
             // printf("s=%d\n", s);
             for(k=0;k<=Z/2;k++)
@@ -178,7 +106,7 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
               P_rs = P_rs + C_kr*C_ks;//NOTE: sum over k up to Z/2
             }
             // printf("%f\n", P_rs);
-            F_pq = F_pq + P_rs*(Dr_pq[r][s] + Ex_pq[r][s]);
+            F_pq = F_pq + P_rs*(D_pq(p,q,r,s) + E_pq(p,q,r,s));
           }
         }
         else if(r==p-1)
@@ -194,7 +122,7 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
               P_rs = P_rs + C_kr*C_ks;//sum over k up to N/2 (NOTA: quindi le ultime due righe dei coefficienti non servono a niente?)
             }
             // printf("%f\n", P_rs);
-            F_pq = F_pq + P_rs*(Dr_pq[r][s] - 0.5*Ex_pq[r][s]);
+            F_pq = F_pq + P_rs*(D_pq(p,q,r,s) + E_pq(p,q,r,s));
           }
         }
       }
@@ -208,29 +136,7 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
   return;
 }
 
-//F' = V_TFV, V = S^{-1/2}U, U = Sevec
-void F_prime(gsl_matrix *Fm, gsl_matrix *Sm, gsl_matrix *Sevec, gsl_matrix *V)
-{
-  gsl_matrix *V_T = gsl_matrix_alloc(n,n);
-  gsl_matrix_memcpy(V,Sevec);
 
-  //build V matrix
-  int i,j;
-  double lambda_i,tmp;
-  for(i=0;i<n;i++)
-  {
-    lambda_i = sqrt(gsl_matrix_get(Sm,i,i));
-    tmp = lambda_i*gsl_matrix_get(V,i,i);
-    gsl_matrix_set(V,i,i,tmp);
-  }
-
-  gsl_matrix_transpose_memcpy(V_T,V);//V_T = transpose of V
-
-  matrixProduct(Fm,V,Fm);//Fm updated to be FV
-  matrixProduct(V_T,Fm,Fm);//Fm updated to V_TFV = F'
-}
-
-// find minimum component of a vector (used for energy minimum)
 double minE(gsl_vector *Ee)
 {
   int i;
@@ -247,7 +153,21 @@ double minE(gsl_vector *Ee)
   return min;
 }
 
-
+void printMatrix(char matrixName, gsl_matrix *m)
+{
+  int i,j;
+  double evec[n][n];
+  printf("%c matrix: \n", matrixName);
+  for(i=0;i<n;i++)
+  {
+    for(j=0;j<n;j++)
+    {
+      evec[i][j] = gsl_matrix_get(m,i,j);
+      printf("%f  ", evec[i][j]);
+    }
+    printf("\n");
+  }
+}
 
 //Real Generalized Symmetric-Definite Eigensystem
 void RGSDE(gsl_matrix *Fm, gsl_matrix *Sm, gsl_matrix *Cm, gsl_vector *Ee)
@@ -262,9 +182,7 @@ int main()
 {
   gsl_matrix *Hm = gsl_matrix_alloc(n,n);
   gsl_matrix *Sm = gsl_matrix_alloc(n,n);
-  gsl_matrix *Sevec = gsl_matrix_alloc(n,n);
   gsl_matrix *Fm = gsl_matrix_alloc(n,n);
-  gsl_matrix *Vm = gsl_matrix_alloc(n,n);
   gsl_matrix *C_old = gsl_matrix_alloc(n,n);
   gsl_matrix *C_new = gsl_matrix_alloc(n,n);
   gsl_vector *Ee = gsl_vector_alloc(n);
@@ -275,23 +193,27 @@ int main()
   gsl_matrix_set_zero(C_new);
   gsl_vector_set_zero(Ee);
 
-  //self-consistent procedure
-  double alfa = 1e-2;//coefficient in the variation of the coefficients
-  double tmp,norm,tmp2;
-  int i,j;
-
-  //first iteration (to set the min of energy)
-  S(Sm, Sevec); //build overlap matrix
-  char s={'S'};char h={'H'};char c_n={'C'};char c_o={'O'};char f={'F'};
-  printMatrix(s,Sm);
+  S(Sm); //build overlap matrix
   H(Hm); //build Hamiltonian
+
+  //self-consistent procedure
+  char s={'S'};char h={'H'};char c_n={'C'};char c_o={'O'};char f={'F'};
+  // printMatrix(s,Sm);
+  double alfa = 9e-5;//coefficient in the variation of the coefficients
+  printf("alfa = %e\n", alfa);
+  double check = 1;
+  double convergence = 1e-10;
+  double tmp,norm,tmp2;
+  double evec[n][n], eval[n];
+  int i,j,k;
+  //first iteration (to set the min of energy)
   F(Fm,Hm,C_new); //build Fock matrix
-  // F_prime(Fm,Sm,Sevec,Vm);
+  // printMatrix(f,Fm);
   RGSDE(Fm,Sm,C_new,Ee); //Solve the generalized eigrnvalue problem
   tmp = fabs(minE(Ee));//POSSIBLE PROBLEM IF ALREADY SMALLER THAN convergence
-  double check = 1;
-  double convergence = 1e-6;
-  printf("minE = %f       check = %f\n", minE(Ee), check);
+  // printf("minE = %f       check = %f\n", tmp, check);
+  // printMatrix(s,Sm);
+  k=0;
   while(check>convergence)
   {
     //compute new coefficients as a small variation of
@@ -300,45 +222,42 @@ int main()
       for(j=0;j<n;j++)
       {
         tmp2 = alfa*gsl_matrix_get(C_new,i,j) + (1-alfa)*gsl_matrix_get(C_old,i,j);
-        // printf("tmp2 = %f\n", tmp2);
         gsl_matrix_set(C_new,i,j,tmp2);
-        //norm = gsl_matrix_norm1(C_new);
       }
     }
-    S(Sm,Sevec); //build overlap matrix
+    S(Sm); //build overlap matrix
     H(Hm); //build Hamiltonian
 
     gsl_matrix_memcpy(C_old,C_new);//update C_old
+    printf("----------------------%d-------------------------\n", k);
     F(Fm,Hm,C_new); //build Fock matrix
-    // F_prime(Fm,Sm,Sevec,Vm);
-    // printMatrix(f,Fm);
     RGSDE(Fm,Sm,C_new,Ee); //Solve the generalized eigrnvalue problem
     tmp2 = fabs(minE(Ee));
     check = fabs(tmp2-tmp);
     tmp = tmp2;
-    // check = 0;
     printf("minE = %f       check = %e\n", minE(Ee), check);
+    k++;
   }
 
+  printf("------ minE = %f ------\n", minE(Ee));
 
 
 
 
-  double evec[n][n], eval[n];
-  for(i=0;i<n;i++)
-  {
-    for(j=0;j<n;j++)
-    {
-      evec[i][j] = gsl_matrix_get(C_new,i,j);
-      printf("%f  ", evec[i][j]);
-    }
-    printf("\n");
-  }
-  printf("----------------------------------\n");
-  for(i=0;i<n;i++)
-  {
-    eval[i] = gsl_vector_get(Ee,i);
-    printf("%f  ", eval[i]);
-    printf("\n");
-  }
+  // for(i=0;i<n;i++)
+  // {
+  //   for(j=0;j<n;j++)
+  //   {
+  //     evec[i][j] = gsl_matrix_get(C_new,i,j);
+  //     printf("%f  ", evec[i][j]);
+  //   }
+  //   printf("\n");
+  // }
+  // printf("----------------------------------\n");
+  // for(i=0;i<n;i++)
+  // {
+  //   eval[i] = gsl_vector_get(Ee,i);
+  //   printf("%f  ", eval[i]);
+  //   printf("\n");
+  // }
 }

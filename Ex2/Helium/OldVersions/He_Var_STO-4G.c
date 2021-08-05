@@ -10,8 +10,8 @@ double pi=4.*atan(1.);
 int n=4;//# of basis functions
 int Z=2;//# of electrons
 //gaussians exponents
-double alpha[4] = {14.899983, 2.726485, 0.757447, 0.251390};
-
+// double alpha[4] = {14.899983, 2.726485, 0.757447, 0.251390};
+double alpha[4] = {38.216677, 5.749982, 1.236745, 0.297104};
 //gaussian basis
 double Chi(double r, double alpha)
 {
@@ -117,7 +117,7 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
               P_rs = P_rs + C_kr*C_ks;//NOTE: sum over k up to Z/2
             }
             // printf("%f\n", P_rs);
-            F_pq = F_pq + P_rs*(Dr_pq[r][s] + Ex_pq[r][s]);
+            F_pq = F_pq + P_rs*(Dr_pq[r][s] + 0.5*Ex_pq[r][s]);
           }
         }
         else if(r==p-1)
@@ -138,7 +138,7 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
         }
       }
       H_pq = gsl_matrix_get(Hm,p,q);
-      F_pq = F_pq + 2*H_pq;
+      F_pq = F_pq + H_pq;
       // printf("p=%d, q=%d, F_pq=%f\n",p,q, F_pq);
       gsl_matrix_set(Fm,p,q,F_pq);
       gsl_matrix_set(Fm,q,p,F_pq);
@@ -222,7 +222,7 @@ int main()
   //self-consistent procedure
   char s={'S'};char h={'H'};char c_n={'C'};char c_o={'O'};char f={'F'};
   // printMatrix(s,Sm);
-  double alfa = 1e-3;//coefficient in the variation of the coefficients
+  double alfa = 1e-4;//coefficient in the variation of the coefficients
   printf("alfa = %e\n", alfa);
   double check = 1;
   double convergence = 1e-10;
@@ -252,13 +252,13 @@ int main()
     H(Hm); //build Hamiltonian
 
     gsl_matrix_memcpy(C_old,C_new);//update C_old
-    // printf("----------------------%d-------------------------\n", k);
+    printf("----------------------%d-------------------------\n", k);
     F(Fm,Hm,C_new); //build Fock matrix
     RGSDE(Fm,Sm,C_new,Ee); //Solve the generalized eigrnvalue problem
     tmp2 = fabs(minE(Ee));
     check = fabs(tmp2-tmp);
     tmp = tmp2;
-    // printf("minE = %f       check = %e\n", minE(Ee), check);
+    printf("minE = %f       check = %e\n", minE(Ee), check);
     k++;
   }
 
