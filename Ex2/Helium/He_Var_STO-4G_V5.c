@@ -68,7 +68,7 @@ void S(gsl_matrix *Sm, gsl_matrix *evec)
   //normalization
   gsl_matrix_scale(Sm,tmp);
   gsl_matrix_scale(evec,tmp);
-  // printMatrix(s,evec);
+  printMatrix(s,evec);
   return;
 }
 
@@ -108,7 +108,7 @@ double E_pq(int p, int q, int r, int s)
 {
   double pi5 = pi*pi*pi*pi*pi;
   double tmp = alpha[p] + alpha[q] + alpha[r] + alpha[s];
-  double V_pqrs = 2.*sqrt(pi5)/((alpha[p] + alpha[q])*(alpha[r] + alpha[s])*sqrt(tmp));
+  double V_pqrs = -2.*sqrt(pi5)/((alpha[p] + alpha[q])*(alpha[r] + alpha[s])*sqrt(tmp));
 
   return V_pqrs;
 }
@@ -140,7 +140,7 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
               C_ks = gsl_matrix_get(Cm,k,s);
               P_rs = P_rs + C_kr*C_ks;//NOTE: sum over k up to Z/2
             }
-            F_pq = F_pq + P_rs*(2*D_pq(p,q,r,s) + E_pq(p,q,r,s));
+            F_pq = F_pq + P_rs*(D_pq(p,q,r,s) + 0.5*E_pq(p,q,r,s));
           }
         }
         else if(r==p-1)
@@ -154,12 +154,12 @@ void F(gsl_matrix *Fm, gsl_matrix *Hm, gsl_matrix *Cm)
               C_ks = gsl_matrix_get(Cm,k,s);
               P_rs = P_rs + C_kr*C_ks;//sum over k up to N/2 (NOTA: quindi le ultime due righe dei coefficienti non servono a niente?)
             }
-            F_pq = F_pq + P_rs*(2*D_pq(p,q,r,s) + E_pq(p,q,r,s));
+            F_pq = F_pq + P_rs*(D_pq(p,q,r,s) + 0.5*E_pq(p,q,r,s));
           }
         }
       }
       H_pq = gsl_matrix_get(Hm,p,q);
-      F_pq = F_pq + 2*H_pq;
+      F_pq = F_pq + H_pq;
       norm += F_pq*F_pq;
       // printf("p=%d, q=%d, F_pq=%f\n",p,q, F_pq);
       gsl_matrix_set(Fm,p,q,F_pq);
@@ -191,23 +191,42 @@ void matrixProduct(gsl_matrix *A, gsl_matrix *B, gsl_matrix *Out)
   }
 }
 
-//F' = V_TFV, V = S^{-1/2}U, U = Sevec
-void F_prime(gsl_matrix *Fm, gsl_matrix *Sm, gsl_matrix *Sevec, gsl_matrix *V)
+//F' = V_TFV, V = U_Ts^{-1/2}U, U = Sevec
+void F_prime(gsl_matrix *Fm, gsl_matrix *Sm, gsl_matrix *U, gsl_matrix *V)
 {
   gsl_matrix *V_T = gsl_matrix_alloc(n,n);
-  gsl_matrix_memcpy(V,Sevec);
+  gsl_matrix *U_T = gsl_matrix_alloc(n,n);
+  gsl_matrix *tmp2 = gsl_matrix_alloc(n,n);
 
-  //build V matrix
+  //build s^-1/2 matrix
   int i,j;
   double lambda_i,tmp;
   for(i=0;i<n;i++)
   {
     lambda_i = sqrt(gsl_matrix_get(Sm,i,i));
-    tmp = lambda_i*gsl_matrix_get(V,i,i);
+    tmp = 1./lambda_i;//*gsl_matrix_get(Sevec,i,i);
     gsl_matrix_set(V,i,i,tmp);
   }
-
+  printf("-----------------------------------------------\n");
+  printMatrix(f,Fm);
+  printMatrix(s,Sm);
+  printMatrix(f,U);
+  printMatrix(s,V);
+  gsl_matrix_transpose_memcpy(U_T,U);//U_T = transpose of U
+  printMatrix(f,U);
+  printMatrix(s,U_T);
+  //build V matrix
+  matrixProduct(U,V,tmp2);
+  gsl_matrix_memcpy(V,tmp2);
+  printMatrix(c_o,V);
   gsl_matrix_transpose_memcpy(V_T,V);//V_T = transpose of V
+
+  matrixProduct(Sm,V,tmp2);
+  gsl_matrix_memcpy(Sm,tmp2);
+  matrixProduct(V_T,Sm,tmp2);
+  gsl_matrix_memcpy(Sm,tmp2);
+  printMatrix(s,Sm);
+
 
   matrixProduct(Fm,V,Fm);//Fm updated to be FV
   matrixProduct(V_T,Fm,Fm);//Fm updated to V_TFV = F'
@@ -230,11 +249,19 @@ double minE(gsl_vector *Ee)
 }
 
 //Real Generalized Symmetric-Definite Eigensystem
+// void RGSDE(gsl_matrix *Fm, gsl_matrix *Sm, gsl_matrix *Cm, gsl_vector *Ee)
+// {
+//   gsl_eigen_gensymmv_workspace *w = gsl_eigen_gensymmv_alloc(n);
+//   gsl_eigen_gensymmv(Fm, Sm, Ee, Cm, w);
+//   gsl_eigen_gensymmv_free(w);
+//   return;
+// }
+
 void RGSDE(gsl_matrix *Fm, gsl_matrix *Sm, gsl_matrix *Cm, gsl_vector *Ee)
 {
-  gsl_eigen_gensymmv_workspace *w = gsl_eigen_gensymmv_alloc(n);
-  gsl_eigen_gensymmv(Fm, Sm, Ee, Cm, w);
-  gsl_eigen_gensymmv_free(w);
+  gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(n);
+  gsl_eigen_symmv(Fm, Ee, Cm, w);
+  gsl_eigen_symmv_free(w);
   return;
 }
 
@@ -258,7 +285,7 @@ int main()
   //self-consistent procedure
   double alfa = 5e-1; //coefficient for the mixture of the old and new coefficients ([10^-3, 0.5])
   printf("alfa = %e\n", alfa);
-  double check = 1; // store the variation of energy (minimum) between cycles
+  double check = 0; // store the variation of energy (minimum) between cycles
   double convergence = 1e-10; // cycle stops when the energy difference (check) is lower than "convergence"
   double evec[n][n], eval[n]; //store eigenvectors and eigenvalues
 
@@ -292,7 +319,7 @@ int main()
     S(Sm,Sevec); //build overlap matrix
     H(Hm); //build Hamiltonian
     F(Fm,Hm,C_new); //build Fock matrix
-    F_prime(Fm,Sm,Sevec,Vm);
+    // F_prime(Fm,Sm,Sevec,Vm);
     gsl_matrix_memcpy(C_old,C_new);//update C_old
     RGSDE(Fm,Sm,C_new,Ee); //Solve the generalized eigrnvalue problem
     tmp2 = fabs(minE(Ee));
