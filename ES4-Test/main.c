@@ -15,16 +15,16 @@
 //grid size
 #define N 1000
 //max number of shells
-#define Smax 3
+#define Smax 4
 //max of quantum number n
-#define Nmax 2
+#define Nmax 3
 //max of quantum number l
 #define Lmax 4
 //max number of iteration
-#define Qmax 50
+#define Qmax 20
 
-const int Nelist[Smax] = {2,8,18,20,26,40};
-const int nnList[Smax] = {0,1*Nmax,2*Nmax,1,1+1*Nmax,3*Nmax};
+const int Nelist[Smax] = {2,4,10,18};
+const int nnList[] = {0,1,1*Nmax,2,1*Nmax+1}; //(nmin-1) + lmin*Nmax
 
 const double_t tEnd = 15;
 const double_t h = tEnd/(double_t) N;
@@ -36,8 +36,12 @@ double_t Vext[N];
 double_t psi[3][N];
 double_t psimem[Nmax*Lmax][N];
 double_t rho[4][N];
+double_t Etot;
+double_t Ehart;
+double_t Exc;
 double_t Ea[3][Nmax*Lmax];
-//bool Eavail[Nmax*Lmax];
+bool Eavail[Nmax*Lmax];
+
 
 char title[30];
 char filename[30];
@@ -106,9 +110,9 @@ double_t fr(int k)
   double_t rsefac = beta1*rse05 + beta2*rse + beta3*rse15 + beta4*rse2;
 
   double_t Vext =  -Ne/r;
-  double_t Vhart = 0; //(q != 0) ? rho[2][k] : 0;
-  double_t Vexc = 0; //(q != 0) ? C2*cbrtq(rho[1][k]) : 0;
-  double_t Vcorr = 0; //(q != 0) ? -C3*( (2*alpha1*rs+3)*logq(1+1/(2*A*rsefac)) + (alpha1*rs+1)*rsenum/((2*A*rsefac+1)*rsefac) ): 0;
+  double_t Vhart = (q != 0) ? rho[2][k] : 0;
+  double_t Vexc = (q != 0) ? C2*cbrtq(rho[1][k]) : 0;
+  double_t Vcorr = (q != 0) ? -C3*( (2*alpha1*rs+3)*logq(1+1/(2*A*rsefac)) + (alpha1*rs+1)*rsenum/((2*A*rsefac+1)*rsefac) ): 0;
 
   return (-2*(Vext + Vhart + Vexc + Vcorr) -l*(l+1)/r2);
 }
@@ -135,6 +139,7 @@ double_t CalcNorm()
   return sqrtq(h/3*I);
 }
 
+
 //calculate the Hartree term
 double_t CalcHartree(int nr)
 {
@@ -144,12 +149,12 @@ double_t CalcHartree(int nr)
   {
     if(j < n-3) //3/8 Simpson rule
     {
-      Ia += coeff3*( rho[0][j]*rho[0][j]*rho[1][j] + 3*rho[0][j+1]*rho[0][j+1]*rho[1][j+1] + 3*rho[0][j+2]*rho[0][j+2]*rho[1][j+2] + rho[0][j+3]*rho[0][j+3]*rho[1][j+3] );
+      Ia += coeff3*( get_r(j)*get_r(j)*rho[1][j] + 3*get_r(j+1)*get_r(j+1)*rho[1][j+1] + 3*get_r(j+2)*get_r(j+2)*rho[1][j+2] + get_r(j+3)*get_r(j+3)*rho[1][j+3] );
       j += 3;
     }
     else //two point Simpson rule
     {
-      Ia += coeff2*( rho[0][j]*rho[0][j]*rho[1][j] + 4*rho[0][j+1]*rho[0][j+1]*rho[1][j+1] + rho[0][j+2]*rho[0][j+2]*rho[1][j+2] );
+      Ia += coeff2*( get_r(j)*get_r(j)*rho[1][j] + 4*get_r(j+1)*get_r(j+1)*rho[1][j+1] + get_r(j+2)*get_r(j+2)*rho[1][j+2] );
       j += 2;
     }
   }
@@ -159,17 +164,60 @@ double_t CalcHartree(int nr)
   {
     if(j < N-3) //3/8 Simpson rule
     {
-      Ib += coeff3*(rho[0][j]*rho[1][j] + 3*rho[0][j+1]*rho[1][j+1] + 3*rho[0][j+2]*rho[1][j+2] + rho[0][j+3]*rho[1][j+3]);
+      Ib += coeff3*(get_r(j)*rho[1][j] + 3*get_r(j+1)*rho[1][j+1] + 3*get_r(j+2)*rho[1][j+2] + get_r(j+3)*rho[1][j+3]);
       j += 3;
     }
     else //two point Simpson rule
     {
-      Ib += coeff2*(rho[0][j]*rho[1][j] + 4*rho[0][j+1]*rho[1][j+1] + rho[0][j+2]*rho[1][j+2]);
+      Ib += coeff2*(get_r(j)*rho[1][j] + 4*get_r(j+1)*rho[1][j+1] + get_r(j+2)*rho[1][j+2]);
       j += 2;
     }
   }
 
-  return 4*M_PI * (Ia/rho[0][nr] + Ib);
+  return 4*M_PI * (Ia/get_r(nr) + Ib);
+}
+
+double_t EnergyHartree()
+{
+  double_t I = 0;
+  for(int j = 1; j < N-1; j+=2)
+  {
+    I += (get_r(j-1)*get_r(j-1)*rho[1][j-1]*rho[2][j-1] + 4*get_r(j)*get_r(j)*rho[1][j]*rho[2][j] + get_r(j+1)*get_r(j+1)*rho[1][j+1]*rho[2][j+1]);
+  }
+  return 4*M_PI*coeff2*I;
+}
+
+double_t eCorr(int k) //non funziona - sbagliata
+{
+  double_t rse = rho[3][k];
+  double_t rse2 = rse*rse;
+  double_t rse05 = sqrtq(rse);
+  double_t rse15 = rse05*rse;
+
+  double_t rsenum = 0.5*beta1*rse05 + beta2*rse + 1.5*beta3*rse15 + 2*beta4*rse2;
+  double_t rsefac = beta1*rse05 + beta2*rse + beta3*rse15 + beta4*rse2;
+
+  return -C3*( (2*alpha1*rs+3)*logq(1+1/(2*A*rsefac)) + (alpha1*rs+1)*rsenum/((2*A*rsefac+1)*rsefac) );
+}
+
+double_t EnergyXC() //non funziona - sbagliata
+{
+  double_t I = 0;
+  for(int j = 1; j < N-1; j+=2)
+  {
+    I += (get_r(j-1)*get_r(j-1)*rho[1][j-1]*rho[2][j-1] + 4*get_r(j)*get_r(j)*rho[1][j]*rho[2][j] + get_r(j+1)*get_r(j+1)*rho[1][j+1]*rho[2][j+1]);
+  }
+  return 4*M_PI*coeff2*I;
+}
+
+double_t Norm()
+{
+  double_t I = 0;
+  for(int j = 1; j < N-1; j+=2)
+  {
+    I += (get_r(j-1)*get_r(j-1)*rho[1][j-1] + 4*get_r(j)*get_r(j)*rho[1][j] + get_r(j+1)*get_r(j+1)*rho[1][j+1]);
+  }
+  return 4*M_PI*coeff2*I;
 }
 
 //------------------------------------------------------------------------------
@@ -255,11 +303,11 @@ int main()
           }
           */
 
-          printf("Ne = %i,\tl = %i,\tn = %i,\tE = %40.39lg\n",Ne, l, n, E);
+          //printf("Ne = %i,\tl = %i,\tn = %i,\tE = %40.39lg\n",Ne, l, n, E);
           Ea[0][(n-1) + l*Nmax] = (double_t) n;
           Ea[1][(n-1) + l*Nmax] = (double_t) l;
           Ea[2][(n-1) + l*Nmax] = E;
-          //Eavail[(n-1) + l*Nmax] = false;
+
 
           //save the potential
           for (int i = 0; i < N; i++) psi[2][i] = fr(i);
@@ -274,7 +322,7 @@ int main()
             psimem[(n-1) + l*Nmax][j] = psi[1][j];
           }
 
-          for(int j = 0; j < N; j++) psi[1][j] = 4*M_PI*psi[1][j]*psi[1][j]*psi[0][j]*psi[0][j];
+          //for(int j = 0; j < N; j++) psi[1][j] = 4*M_PI*psi[1][j]*psi[1][j]*psi[0][j]*psi[0][j];
 
           sprintf(filename, "dati/plot%02i%02i%02i", s, n, l);
           writeCSVdouble_t(filename, (double_t *) psi, 3, N, title);
@@ -289,8 +337,11 @@ int main()
       //now calculate the density here
       //search for lowest energy states
       ne = 0;
-      for (int k = 0; k < N; k++) rho[1][k] = (1-mix) * rho[1][k];
+      for (int k = 0; k < N; k++) rho[1][k] = 0;
+      for (size_t k = 0; k < Nmax*Lmax; k++) Eavail[k] = false;
       nn = 0;
+
+      Etot = 0;
 
       while(ne < Ne)
       {
@@ -314,8 +365,10 @@ int main()
         {
           double_t val = psimem[(nmin-1) + lmin*Nmax][k];
           rho[0][k] = psi[0][k];
-          rho[1][k] += 2*(2*lmin + 1)*val*val * mix;
+          rho[1][k] += ((double_t) 2*(2*lmin + 1)) * val*val;
         }
+
+        Etot += 2*(2*lmin + 1)*Ea[2][jmin];
       }
 
       for(int k = 0; k < N; k++)
@@ -324,6 +377,10 @@ int main()
         rho[3][k] = cbrtq(3/(4*M_PI*rho[1][k])); //r_s
       }
 
+      Ehart = EnergyHartree();
+      Exc = EnergyXC();
+      printf("%lg, %lg\n", Etot, Ehart);
+
     }
 
     sprintf(title, "N_e = %i", ne);
@@ -331,7 +388,6 @@ int main()
     writeCSVdouble_t(filename, (double_t *) rho, 4, N, title);
     printf("\n");
   }
-
 
 
   return 0;
