@@ -39,6 +39,7 @@ double_t rho[4][N];
 double_t rhoOld[N];
 double_t Ea[3][Nmax*Lmax];
 //bool Eavail[Nmax*Lmax];
+double_t Spillout[2][Smax];
 
 char title[30];
 char filename[30];
@@ -149,6 +150,18 @@ double_t CalcNorm()
   for(int j = 1; j < N-1; j+=2)
   {
     I += (get_r(j-1)*get_r(j-1)*psi[1][j-1]*psi[1][j-1] + 4*get_r(j)*get_r(j)*psi[1][j]*psi[1][j] + get_r(j+1)*get_r(j+1)*psi[1][j+1]*psi[1][j+1]);
+  }
+  return sqrtq(h/3*I);
+}
+
+double_t CalcSpillout()
+{
+  double_t I = 0;
+  for(int j = 1; j < N-1; j+=2)
+  {
+    if(get_r(j-1) > Rc) I += rho[1][j-1];
+    if(get_r(j)   > Rc) I += 4*rho[1][j];
+    if(get_r(j+1) > Rc) I += rho[1][j+1];
   }
   return sqrtq(h/3*I);
 }
@@ -311,7 +324,15 @@ int main()
     sprintf(filename, "dati/density%02i", s);
     writeCSVdouble_t(filename, (double_t *) rho, 4, N, title);
     printf("\n");
+
+    //calculate spillout
+    Spillout[0][s-1] = (double_t) ne;
+    Spillout[1][s-1] = CalcSpillout();
   }
+
+  sprintf(title, "Spillout");
+  sprintf(filename, "dati/Spillout");
+  writeCSVdouble_t(filename, (double_t *) Spillout, 2, Smax, title);
 
   return 0;
 }
