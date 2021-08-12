@@ -21,7 +21,7 @@
 //max of quantum number l
 #define Lmax 4
 //max number of iteration
-#define Qmax 15
+#define Qmax 150
 
 const int Nelist[Smax] = {2,8,18,20,26,40};
 const int nnList[Smax] = {0,1*Nmax,2*Nmax,1,1+1*Nmax,3*Nmax};
@@ -294,7 +294,7 @@ int main()
         {
           double_t val = psimem[(nmin-1) + lmin*Nmax][k];
           rho[0][k] = psi[0][k];
-          rho[1][k] += 2*(2*lmin + 1)*val*val;
+          rho[1][k] += 2*(2*lmin + 1)*val*val * mix;
         }
       }
 
