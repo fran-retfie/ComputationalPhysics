@@ -26,10 +26,10 @@
 const int Nelist[Smax] = {2,8,18,20,26,40};
 const int nnList[Smax] = {0,1*Nmax,2*Nmax,1,1+1*Nmax,3*Nmax};
 
-const double_t tEnd = 20;
-const double_t h = tEnd/(double_t) N;
-const double_t tStart = h;
-const double_t Estep = 0.001;
+const double_t tEnd = 27;
+const double_t tStart = tEnd/(double_t) N;
+const double_t h = (tEnd-tStart)/(double_t) N;
+const double_t Estep = 0.003;
 const double_t h2_12 = h*h/12;
 
 double_t Vext[N];
@@ -52,7 +52,7 @@ int ne;
 int nn;
 
 //state mixing coefficient
-const double_t mix = 0.8;
+const double_t mix = 0.15;
 
 //correlation terms constants
 const double_t A = 0.031091;
@@ -62,7 +62,7 @@ const double_t beta2 = 3.5876;
 const double_t beta3 = 1.6382;
 const double_t beta4 = 0.49294;
 
-static const double_t coeff3 = 3/8*h;
+//static const double_t coeff3 = 3/8*h;
 static const double_t coeff2 = h/3;
 
 //Na atom
@@ -92,13 +92,30 @@ double_t get_r(int k)
   return tStart + h*k;
 }
 
+double_t get_r_max(int j, int i)
+{
+  return ( (i>j) ? (tStart + h*i) : (tStart + h*j) );
+}
+
+//calculate the Hartree term
+double_t CalcHartree(int nr)
+{
+  double_t I = 0;
+  for(int j = 1; j < N-1; j+=2)
+  {
+    I += (get_r(j-1)*get_r(j-1)*rho[1][j-1]/get_r_max(j-1,nr) + 4*get_r(j)*get_r(j)*rho[1][j]/get_r_max(j,nr) + get_r(j+1)*get_r(j+1)*rho[1][j+1]/get_r_max(j+1,nr) );
+  }
+
+  return 4*M_PI * h/3 * I;
+}
+
 //effective potential (normalized!!)
 double_t fr(int k)
 {
   double_t r = get_r(k);
   double_t r2 = r*r;
 
-  double_t rse = rho[3][k];
+  double_t rse = cbrtq(3/(4*M_PI*rho[1][k]));
   double_t rse2 = rse*rse;
   double_t rse05 = sqrtq(rse);
   double_t rse15 = rse05*rse;
@@ -107,7 +124,7 @@ double_t fr(int k)
   double_t rsefac = beta1*rse05 + beta2*rse + beta3*rse15 + beta4*rse2;
 
   double_t Vext =  ( (r < Rc) ? (C1*(r2 - 3*Rc2)) : (-Ne/r) );
-  double_t Vhart = (q != 0) ? rho[2][k] : 0;
+  double_t Vhart = (q != 0) ? CalcHartree(k) : 0;
   double_t Vexc =  (q != 0) ? C2*cbrtq(rho[1][k]) : 0;
   double_t Vcorr = (q != 0) ? -C3*( (2*alpha1*rs+3)*logq(1+1/(2*A*rsefac)) + (alpha1*rs+1)*rsenum/((2*A*rsefac+1)*rsefac) ): 0;
 
@@ -134,43 +151,6 @@ double_t CalcNorm()
     I += (get_r(j-1)*get_r(j-1)*psi[1][j-1]*psi[1][j-1] + 4*get_r(j)*get_r(j)*psi[1][j]*psi[1][j] + get_r(j+1)*get_r(j+1)*psi[1][j+1]*psi[1][j+1]);
   }
   return sqrtq(h/3*I);
-}
-
-//calculate the Hartree term
-double_t CalcHartree(int nr)
-{
-  double_t Ia = 0;
-  int j = 0;
-  while(j < nr-2)
-  {
-    if(j < n-3) //3/8 Simpson rule
-    {
-      Ia += coeff3*( rho[0][j]*rho[0][j]*rho[1][j] + 3*rho[0][j+1]*rho[0][j+1]*rho[1][j+1] + 3*rho[0][j+2]*rho[0][j+2]*rho[1][j+2] + rho[0][j+3]*rho[0][j+3]*rho[1][j+3] );
-      j += 3;
-    }
-    else //two point Simpson rule
-    {
-      Ia += coeff2*( rho[0][j]*rho[0][j]*rho[1][j] + 4*rho[0][j+1]*rho[0][j+1]*rho[1][j+1] + rho[0][j+2]*rho[0][j+2]*rho[1][j+2] );
-      j += 2;
-    }
-  }
-
-  double_t Ib = 0;
-  while(j < N-1)
-  {
-    if(j < N-3) //3/8 Simpson rule
-    {
-      Ib += coeff3*(rho[0][j]*rho[1][j] + 3*rho[0][j+1]*rho[1][j+1] + 3*rho[0][j+2]*rho[1][j+2] + rho[0][j+3]*rho[1][j+3]);
-      j += 3;
-    }
-    else //two point Simpson rule
-    {
-      Ib += coeff2*(rho[0][j]*rho[1][j] + 4*rho[0][j+1]*rho[1][j+1] + rho[0][j+2]*rho[1][j+2]);
-      j += 2;
-    }
-  }
-
-  return 4*M_PI * (Ia/rho[0][nr] + Ib);
 }
 
 //------------------------------------------------------------------------------
@@ -256,10 +236,10 @@ int main()
           }
           */
 
-          printf("Ne = %i,\tl = %i,\tn = %i,\tE = %40.39lg\n",Ne, l, n, E);
+          //printf("Ne = %i,\tl = %i,\tn = %i,\tE = %40.39lg\n",Ne, l, n, E);
           Ea[0][(n-1) + l*Nmax] = (double_t) n;
           Ea[1][(n-1) + l*Nmax] = (double_t) l;
-          Ea[2][(n-1) + l*Nmax] = E;
+          Ea[2][(n-1) + l*Nmax] = 2*E;
           //Eavail[(n-1) + l*Nmax] = false;
 
           //save the potential
@@ -289,7 +269,7 @@ int main()
       //search for lowest energy states
       ne = 0;
       for (int k = 0; k < N; k++) rhoOld[k] = rho[1][k];
-      for (int k = 0; k < N; k++) rho[1][k] = 0;
+      for (int k = 0; k < N; k++) rho[1][k] = rho[1][k] * (1 - mix);
       nn = 0;
 
       while(ne < Ne)
@@ -318,12 +298,13 @@ int main()
         }
       }
 
+      /*
       for(int k = 0; k < N; k++)
       {
         rho[2][k] = CalcHartree(k); //hartree term
         rho[3][k] = cbrtq(3/(4*M_PI*rho[1][k])); //r_s
       }
-
+      */
     }
 
     sprintf(title, "N_e = %i", ne);
@@ -331,8 +312,6 @@ int main()
     writeCSVdouble_t(filename, (double_t *) rho, 4, N, title);
     printf("\n");
   }
-
-
 
   return 0;
 }
