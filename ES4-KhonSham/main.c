@@ -67,9 +67,9 @@ const double_t beta4 = 0.49294;
 static const double_t coeff2 = h/3;
 
 //Na atom
-const double_t rs = 3.93;
+//const double_t rs = 3.93;
 //K atom
-//const double_t rs = 4.86;
+const double_t rs = 4.86;
 
 int Ne;
 //const double_t rs3 = (rs*rs*rs);
@@ -159,11 +159,11 @@ double_t CalcSpillout()
   double_t I = 0;
   for(int j = 1; j < N-1; j+=2)
   {
-    if(get_r(j-1) > Rc) I += rho[1][j-1];
-    if(get_r(j)   > Rc) I += 4*rho[1][j];
-    if(get_r(j+1) > Rc) I += rho[1][j+1];
+    if(get_r(j-1) > Rc) I += rho[1][j-1]*get_r(j-1)*get_r(j-1);
+    if(get_r(j)   > Rc) I += 4*rho[1][j]*get_r(j)*get_r(j);
+    if(get_r(j+1) > Rc) I += rho[1][j+1]*get_r(j+1)*get_r(j+1);
   }
-  return sqrtq(h/3*I);
+  return 4*M_PI*h/3*I;
 }
 
 //------------------------------------------------------------------------------
@@ -330,7 +330,7 @@ int main()
     Spillout[1][s-1] = CalcSpillout();
   }
 
-  sprintf(title, "Spillout");
+  sprintf(title, "Polarizability");
   sprintf(filename, "dati/Spillout");
   writeCSVdouble_t(filename, (double_t *) Spillout, 2, Smax, title);
 
