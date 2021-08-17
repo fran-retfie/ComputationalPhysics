@@ -39,7 +39,7 @@ double_t rho[4][N];
 double_t rhoOld[N];
 double_t Ea[3][Nmax*Lmax];
 //bool Eavail[Nmax*Lmax];
-double_t Spillout[2][Smax];
+double_t Spillout[4][Smax];
 
 char title[30];
 char filename[30];
@@ -67,9 +67,9 @@ const double_t beta4 = 0.49294;
 static const double_t coeff2 = h/3;
 
 //Na atom
-//const double_t rs = 3.93;
+const double_t rs = 3.93;
 //K atom
-const double_t rs = 4.86;
+//const double_t rs = 4.86;
 
 int Ne;
 //const double_t rs3 = (rs*rs*rs);
@@ -328,11 +328,13 @@ int main()
     //calculate spillout
     Spillout[0][s-1] = (double_t) ne;
     Spillout[1][s-1] = CalcSpillout();
+    Spillout[2][s-1] = 1/cbrtq((double_t) ne);
+    Spillout[3][s-1] = Rc3*(1 + Spillout[1][s-1]/Spillout[0][s-1]);
   }
 
   sprintf(title, "Polarizability");
   sprintf(filename, "dati/Spillout");
-  writeCSVdouble_t(filename, (double_t *) Spillout, 2, Smax, title);
+  writeCSVdouble_t(filename, (double_t *) Spillout, 4, Smax, title);
 
   return 0;
 }
