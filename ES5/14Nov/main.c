@@ -85,9 +85,9 @@ int writeCSVparticles(char *filename, struct point points[N])
 
 struct point PBC(struct point dr)
 {
-  dr.x = dr.x - 2*a*rint(dr.x/(2*a));
-  dr.y = dr.y - 2*a*rint(dr.y/(2*a));
-  dr.z = dr.z - 2*a*rint(dr.z/(2*a));
+  dr.x = dr.x - 2*a*rint(dr.x/(a));
+  dr.y = dr.y - 2*a*rint(dr.y/(a));
+  dr.z = dr.z - 2*a*rint(dr.z/(a));
 
   return dr;
 }
@@ -153,7 +153,6 @@ double E_kin()
 {
   double Ek = 0;
   struct point dr;
-  double ril = 0;
   double der = 0;
   double du1_l = 0;
   struct point du2[N];
@@ -161,33 +160,33 @@ double E_kin()
   for (int l = 0; l < N; l++)
   {
     du1_l = 0;
-    du2[l].x = 0;du2[l].y = 0;du2[l].y = 0;
-    printf("******************************************\n");
+    du2[l].x = 0;du2[l].y = 0;du2[l].z = 0;
+    //printf("******************************************\n");
     for (int i = 0; i < N; i++)
     {
       if(i != l)
       {
+        //printf("%d %d\n", l,i);
         //printf("pre l = %d   dr.x = %lg   dr.y = %lg    dr.z = %lg \n",l, dr.x,dr.y,dr.z);
         dr.x = pos[l].x - pos[i].x;
         dr.y = pos[l].y - pos[i].y;
         dr.z = pos[l].z - pos[i].z;
         dr = PBC(dr);
-        printf("post l = %d   dr.x = %lg   dr.y = %lg    dr.z = %lg \n",l, dr.x,dr.y,dr.z);
-        ril = r_il(dr);
-        der = 5*b5*gsl_pow_int(ril, -7); //derivative times 1/r_il
+        //printf("post l = %d   dr.x = %lg   dr.y = %lg    dr.z = %lg \n",l, dr.x,dr.y,dr.z);
+        der = 5*b5*gsl_pow_int(r_il(dr), -7); //derivative times 1/r_il
         du1_l += 2*der;
-        du2[l].x += der*der*dr.x*dr.x;
-        du2[l].y += der*der*dr.y*dr.y;
-        du2[l].z += der*der*dr.z*dr.z;
-        printf("der: %lg\n", der);
-        printf("l = %d   du2[l].x = %lg   du2[l].y = %lg    du2[l].z = %f \n",l, du2[l].x,du2[l].y,du2[l].z);
+        du2[l].x += der*dr.x;
+        du2[l].y += der*dr.y;
+        du2[l].z += der*dr.z;
+        //printf("der: %lg\n", der);
+        //printf("l = %d   du2[l].x = %lg   du2[l].y = %lg    du2[l].z = %f \n",l, du2[l].x,du2[l].y,du2[l].z);
       }
       //printf("l = %d   du2[l].x = %lg   du2[l].y = %lg    du2[l].z = %lg \n",l, du2[l].x,du2[l].y,du2[l].z);
     }
-    Ek += du1_l - du2[l].x - du2[l].y - du2[l].z;
-    printf("l = %d   Ek = %lg\n",l, Ek);
+    Ek += du1_l - du2[l].x*du2[l].x - du2[l].y*du2[l].y - du2[l].z*du2[l].z;
+    //printf("l = %d   Ek = %lg\n",l, Ek);
   }
-  return h2_2m * Ek;
+  return -h2_2m * Ek;
 }
 
 double E_kinJF()
@@ -206,6 +205,7 @@ double E_kinJF()
         dr.z = pos[l].z - pos[i].z;
         dr = PBC(dr);
         Etmp += 5*b5*gsl_pow_int(r_il(dr), -7);
+
       }
     }
   }
@@ -228,9 +228,24 @@ double E_pot()
       Etmp += 4*(gsl_pow_int(r_il(dr), -12) - gsl_pow_int(r_il(dr), -6));
     }
   }
-  return 0;
+  return Etmp;
 }
 
+void test(int i, int l)
+{
+  struct point dr;
+  double der = 0;
+
+  dr.x = pos[l].x - pos[i].x;
+  dr.y = pos[l].y - pos[i].y;
+  dr.z = pos[l].z - pos[i].z;
+  printf("prev   dr.x = %lg   dr.y = %lg    dr.z = %lg \n",dr.x,dr.y,dr.z);
+  dr = PBC(dr);
+  printf("post   dr.x = %lg   dr.y = %lg    dr.z = %lg \n",dr.x,dr.y,dr.z);
+  der = 5*b5*gsl_pow_int(r_il(dr), -7); //derivative times 1/r_il
+
+  printf("der: %lg\n", der);
+}
 
 int main()
 {
@@ -238,17 +253,47 @@ int main()
   T = gsl_rng_default;
   r = gsl_rng_alloc (T);
 
-  a = 1;
+  a = 5.;
   Delta = a* 0.002;
-  b = 1;
+  b = 1.;
   b5 = pow(b, 5);
 
   placeParticles();
+/*
+  double der = 0;
+  struct point dr;
+  struct point du2[N];
+  for(int l=0; l<N;l++)
+  {
+    for(int i=0; i<N;i++)
+    {
+      if(i != l)
+      {
+        printf("l:%d\n", l);
+        test(i,l);
+        dr.x = pos[l].x - pos[i].x;
+        dr.y = pos[l].y - pos[i].y;
+        dr.z = pos[l].z - pos[i].z;
+        printf("prev   dr.x = %lg   dr.y = %lg    dr.z = %lg \n",dr.x,dr.y,dr.z);
+        dr = PBC(dr);
+        printf("post   dr.x = %lg   dr.y = %lg    dr.z = %lg \n",dr.x,dr.y,dr.z);
+        der = 5*b5*gsl_pow_int(r_il(dr), -7);
+        du2[l].x += der*der*dr.x*dr.x;
+        du2[l].y += der*der*dr.y*dr.y;
+        du2[l].z += der*der*dr.z*dr.z;
+        printf("der: %lg\n", der);
+        printf("l = %d   du2[l].x = %lg   du2[l].y = %lg    du2[l].z = %f \n",l, du2[l].x,du2[l].y,du2[l].z);
+      }
+    }
+  }
+*/
+
   double E_k = E_kin();
-  double E_kJF = E_pot();
-  double E_p = E_kinJF();
+  double E_p = E_pot();
+  double E_kJF = E_kinJF();
   printf("E_kin: %lg    E_kinJF: %lg     E_pot: %lg\n", E_k, E_kJF, E_p);
-  /*
+
+
   FILE *fp;
   fp=fopen("ThermAcc.csv","w+");
 
@@ -265,8 +310,9 @@ int main()
       if(t > 150)
       {
           Nsamples++;
-          Eloc += E_kin() + E_pot();
-          Eloc2 += E_kinJF() + E_pot();
+          E_p += E_pot();
+          Eloc += E_kin();
+          Eloc2 += E_kinJF();
       }
     }
 
@@ -279,6 +325,6 @@ int main()
 
   writeCSVparticles(filename, pos);
   writeCSVparticles(filename1, posNew);
-  */
+
   return 0;
 }
