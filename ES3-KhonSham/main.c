@@ -67,9 +67,9 @@ const double_t beta4 = 0.49294;
 static const double_t coeff2 = h/3;
 
 //Na atom
-const double_t rs = 3.93;
+//const double_t rs = 3.93;
 //K atom
-//const double_t rs = 4.86;
+const double_t rs = 4.86;
 
 int Ne;
 //const double_t rs3 = (rs*rs*rs);
@@ -126,7 +126,7 @@ double_t fr(int k)
 
   double_t Vext =  ( (r < Rc) ? (C1*(r2 - 3*Rc2)) : (-Ne/r) );
   double_t Vhart = (q != 0) ? CalcHartree(k) : 0;
-  double_t Vexc =  (q != 0) ? C2*cbrtq(rho[1][k]) : 0;
+  double_t Vexc =  (q != 0) ? -C2*cbrtq(rho[1][k]) : 0;
   double_t Vcorr = (q != 0) ? -C3*( (2*alpha1*rs+3)*logq(1+1/(2*A*rsefac)) + (alpha1*rs+1)*rsenum/((2*A*rsefac+1)*rsefac) ): 0;
 
   return ( -l*(l+1)/r2 - 2*( Vhart + Vexc + Vcorr + Vext));
