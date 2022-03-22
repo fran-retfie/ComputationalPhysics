@@ -167,4 +167,5 @@ int main()
   writeCSVdouble("energies.csv",(double *)Ea, 2, Nmax);
 
   return 0;
+
 }
