@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 cmd: (cd ES5 && make point4)
+=======
+cmd: (cd ES3-KhonSham && make point4)
+>>>>>>> origin/main
