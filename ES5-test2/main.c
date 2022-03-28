@@ -142,7 +142,7 @@ double E_L()
 double E_L2()
 {
   double E = 0;
-  for (int i = 0; i < N; i++) E += -1/r_ij(pos, i) + b/4/r_ij(pos, i);
+  for (int i = 0; i < N; i++) E += -1/r_ij(pos, i) + b/2/r_ij(pos, i);
   return E;
 }
 
@@ -153,7 +153,7 @@ int main()
   r = gsl_rng_alloc (T);
 
   a = 1;
-  Delta = a * 0.1;
+  Delta = a * 0.21;
   b = 1;
   b5 = pow(b, 5);
   b10 = b5*b5;
@@ -168,7 +168,7 @@ int main()
   FILE *fp;
   fp=fopen("ThermAcc.csv","w+");
 
-  for (int t = 0; t < 100000; t++)
+  for (int t = 0; t < 1000000; t++)
   {
 
     MC_Move();
