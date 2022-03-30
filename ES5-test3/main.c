@@ -36,7 +36,7 @@ double Var2 = 0;
 long Nsamples = 0;
 long tot = 0;
 
-double const h2_2m = 1;
+double const h2_2m = 1; // 662.1821253339011;
 
 // Position of all particles
 struct point pos[N];
@@ -97,13 +97,48 @@ void MC_Move()
   }
 }
 
-double r_ij(struct point points[N], int i)
+double r_ij(struct point points[N], int i, int j)
 {
-  double dx = points[i].x;
-  double dy = points[i].y;
-  double dz = points[i].z;
+  double dx = fabs(points[j].x - points[i].x);
+  double dy = fabs(points[j].y - points[i].y);
+  double dz = fabs(points[j].z - points[i].z);
+
+  if(dx > a) dx = 2*a - dx;
+  if(dy > a) dy = 2*a - dy;
+  if(dz > a) dz = 2*a - dz;
 
   return gsl_hypot3(dx, dy, dz);
+}
+
+double normScalarProd(struct point points[N], int l, int i, int j)
+{
+  double dxi = points[l].x - points[i].x;
+  double dyi = points[l].y - points[i].y;
+  double dzi = points[l].z - points[i].z;
+
+  if(dxi > a) dxi = 2*a - dxi;
+  if(dyi > a) dyi = 2*a - dyi;
+  if(dzi > a) dzi = 2*a - dzi;
+
+  if(dxi < -a) dxi = 2*a + dxi;
+  if(dyi < -a) dyi = 2*a + dyi;
+  if(dzi < -a) dzi = 2*a + dzi;
+
+  double dxj = points[l].x - points[j].x;
+  double dyj = points[l].y - points[j].y;
+  double dzj = points[l].z - points[j].z;
+
+  if(dxj > a) dxj = 2*a - dxj;
+  if(dyj > a) dyj = 2*a - dyj;
+  if(dzj > a) dzj = 2*a - dzj;
+
+  if(dxj < -a) dxj = 2*a + dxj;
+  if(dyj < -a) dyj = 2*a + dyj;
+  if(dzj < -a) dzj = 2*a + dzj;
+
+  double prod = dxi * dxj + dyi * dyj + dzi * dzj;
+
+  return prod/(r_ij(posNew, i, l) * r_ij(posNew, j, l));
 }
 
 int MC_acc()
@@ -111,12 +146,13 @@ int MC_acc()
   double acc;
 
   double sumPsi = 0;
-  for (int i = 0; i < N; i++)
+  for (int j = 0; j < N; j++)
+  for (int i = 0; i < j; i++)
   {
-    sumPsi += r_ij(pos, i) - r_ij(posNew, i);
+    sumPsi += gsl_pow_5(1/r_ij(pos, i, j)) - gsl_pow_5(1/r_ij(posNew, i, j));
   }
 
-  acc = exp(2*b*sumPsi);
+  acc = exp(b5*sumPsi);
 
   if(acc > gsl_ran_flat(r, 0, 1))
   {
@@ -129,21 +165,59 @@ int MC_acc()
     return 1;
   }
   else return 0;
-
 }
 
-double E_L()
+double E_kin()
 {
-  double E = 0;
-  for (int i = 0; i < N; i++) E += -1/r_ij(pos, i) - b/2*(b-2/r_ij(pos, i));
-  return E;
+  double Etmp = 0;
+  double Etmp2 = 0;
+
+  for (int l = 0; l < N; l++)
+  {
+    for (int i = 0; i < N; i++)
+    {
+      if(l != i)
+      {
+        double o_ril = 1./r_ij(pos, i, l);
+        Etmp += gsl_pow_7(o_ril);
+
+        for (int j = 0; j < N; j++)
+        {
+          if(l != j)
+            Etmp2 += normScalarProd(pos, l, i, j) * gsl_pow_6(o_ril) * gsl_pow_6(1/r_ij(pos, j, l));
+        }
+      }
+    }
+  }
+  return h2_2m * (-25/4 * b10 * Etmp2 + 10 * b5 * Etmp);
 }
 
-double E_L2()
+double E_kin2()
 {
-  double E = 0;
-  for (int i = 0; i < N; i++) E += -1/r_ij(pos, i) + b/2/r_ij(pos, i);
-  return E;
+  double Etmp = 0;
+
+  for (int l = 0; l < N; l++)
+  {
+    for (int i = 0; i < N; i++)
+    if(i != l)
+    {
+      Etmp += gsl_pow_7(1/r_ij(pos, i, l));
+    }
+  }
+  return h2_2m * 5 * b5 * Etmp;
+}
+
+double E_pot()
+{
+  double Etmp = 0;
+
+  for (int i = 0; i < N; i++)
+  for (int j = i+1; j < N; j++)
+  {
+    Etmp += 4*(gsl_pow_int(r_ij(pos, i, j), -12) - gsl_pow_int(r_ij(pos, i, j), -6));
+  }
+
+  return 0;
 }
 
 int main()
@@ -152,8 +226,8 @@ int main()
   T = gsl_rng_default;
   r = gsl_rng_alloc (T);
 
-  a = 1;
-  Delta = a * 0.21;
+  a = 0.09075588736790198;
+  Delta = a * 0.01;
   b = 1;
   b5 = pow(b, 5);
   b10 = b5*b5;
@@ -168,40 +242,43 @@ int main()
   FILE *fp;
   fp=fopen("ThermAcc.csv","w+");
 
-  for (int t = 0; t < 1000000; t++)
+  for (int t = 0; t < 100000; t++)
   {
 
     MC_Move();
-    tot += MC_acc();
 
     //wait until thermalization (t = 150, Delta = 0.002), see drawAcc.p
-    if(t > 500)
+    if(t > 1000)
     {
-        Nsamples++;
-        Eloc += E_L(); //calculate the energy
-        Var += E_L()*E_L(); //calculate the energy
-        Eloc2 += E_L2();
-        Var2 += E_L2()*E_L2();
-
+      tot += MC_acc();
+      Nsamples++;
+      double pot = E_pot();
+      Eloc += E_kin() + pot; //calculate the energy
+      Var += gsl_pow_2(E_kin() + pot); //calculate the energy
+      Eloc2 += E_kin2() + pot;
+      Var2 += gsl_pow_2(E_kin2() + pot);
     }
+    else
+      MC_acc();
 
     //print the progress bar
-    //if(t % 5 == 0) printf("%d\n", t/5);
+    if(t % 1000 == 1)
+    {
+      printf("%d\n", t/1000);
+      eloc = Eloc/Nsamples;
+      eloc2 = Eloc2/Nsamples;
+      var = Var/Nsamples;
+      var2 = Var2/Nsamples;
+      printf("%lg \t %lg \n", eloc, sqrt((var - eloc*eloc)));
+      printf("%lg \t %lg \n", eloc2, sqrt((var2 - eloc2*eloc2)));
+      printf("%lg\n", (double) tot/(double) Nsamples);
+    }
 
     //print data into the file
     fprintf(fp,"%d %f\n", t, tot/200.0);
   }
 
   fclose(fp);
-
-  eloc = Eloc/Nsamples;
-  eloc2 = Eloc2/Nsamples;
-  var = Var/Nsamples;
-  var2 = Var2/Nsamples;
-  printf("%lg \t %lg \n", eloc, sqrt((var - eloc*eloc)));
-  printf("%lg \t %lg \n", eloc2, sqrt((var2 - eloc2*eloc2)));
-
-  printf("%lg\n", (double) tot/(double) Nsamples);
 
   return 0;
 }

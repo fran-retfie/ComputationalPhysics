@@ -141,7 +141,6 @@ int MC_acc()
     return 1;
   }
   else return 0;
-
 }
 
 double normScalarProd(struct point points[N], int l, int i, int j)
