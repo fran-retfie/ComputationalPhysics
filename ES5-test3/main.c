@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_math.h>
+#include <time.h>
 
 #include "CSVio.h"
 
@@ -19,8 +20,10 @@ struct point {
 const gsl_rng_type * T;
 gsl_rng * r;
 
-char filename[20] = "initialPos.csv";
-char filename1[20] = "newPos.csv";
+char filename[20] = "dati/initialPos.csv";
+char filename1[20] = "dati/newPos.csv";
+char filename2[20];
+char filename3[20] = "dati/result.csv";
 
 int const Ncells = 2;
 double a;
@@ -28,15 +31,17 @@ double Delta;
 double b;
 double b5;
 double b10;
-double Eloc = 0;
-double Eloc2 = 0;
-double Var = 0;
-double Var2 = 0;
+double Eloc;
+double Eloc2;
+double Var;
+double Var2;
 
-long Nsamples = 0;
-long tot = 0;
+long Nsamples;
+long tot;
 
-double const h2_2m = 1; // 662.1821253339011;
+
+
+double const h2_2m = 0.09075588736790198; // 662.1821253339011;
 
 // Position of all particles
 struct point pos[N];
@@ -94,6 +99,13 @@ void MC_Move()
     posNew[i].x = pos[i].x + gsl_ran_flat(r, -Delta, Delta);
     posNew[i].y = pos[i].y + gsl_ran_flat(r, -Delta, Delta);
     posNew[i].z = pos[i].z + gsl_ran_flat(r, -Delta, Delta);
+
+    while(posNew[i].x > a)  posNew[i].x -= 2*a;
+    while(posNew[i].y > a)  posNew[i].y -= 2*a;
+    while(posNew[i].z > a)  posNew[i].z -= 2*a;
+    while(posNew[i].x < -a) posNew[i].x += 2*a;
+    while(posNew[i].y < -a) posNew[i].y += 2*a;
+    while(posNew[i].z < -a) posNew[i].z += 2*a;
   }
 }
 
@@ -116,9 +128,9 @@ double normScalarProd(struct point points[N], int l, int i, int j)
   double dyi = points[l].y - points[i].y;
   double dzi = points[l].z - points[i].z;
 
-  if(dxi > a) dxi = 2*a - dxi;
-  if(dyi > a) dyi = 2*a - dyi;
-  if(dzi > a) dzi = 2*a - dzi;
+  if(dxi > a) dxi = dxi - 2*a;
+  if(dyi > a) dyi = dyi - 2*a;
+  if(dzi > a) dzi = dzi - 2*a;
 
   if(dxi < -a) dxi = 2*a + dxi;
   if(dyi < -a) dyi = 2*a + dyi;
@@ -128,9 +140,9 @@ double normScalarProd(struct point points[N], int l, int i, int j)
   double dyj = points[l].y - points[j].y;
   double dzj = points[l].z - points[j].z;
 
-  if(dxj > a) dxj = 2*a - dxj;
-  if(dyj > a) dyj = 2*a - dyj;
-  if(dzj > a) dzj = 2*a - dzj;
+  if(dxj > a) dxj = dxj - 2*a;
+  if(dyj > a) dyj = dyj - 2*a;
+  if(dzj > a) dzj = dzj - 2*a;
 
   if(dxj < -a) dxj = 2*a + dxj;
   if(dyj < -a) dyj = 2*a + dyj;
@@ -214,11 +226,21 @@ double E_pot()
   for (int i = 0; i < N; i++)
   for (int j = i+1; j < N; j++)
   {
-    Etmp += 4*(gsl_pow_int(r_ij(pos, i, j), -12) - gsl_pow_int(r_ij(pos, i, j), -6));
+    double rij6 = gsl_pow_int(r_ij(pos, i, j), -6);
+    Etmp += 4*(rij6*rij6 - rij6);
   }
 
-  return 0;
+  return Etmp;
 }
+
+double eloc;
+double eloc2;
+double var;
+double var2;
+
+double bMax = 1.25;
+double bMin = 1.05;
+double bStep = 0.01;
 
 int main()
 {
@@ -226,59 +248,91 @@ int main()
   T = gsl_rng_default;
   r = gsl_rng_alloc (T);
 
-  a = 0.09075588736790198;
-  Delta = a * 0.01;
-  b = 1;
-  b5 = pow(b, 5);
-  b10 = b5*b5;
-
-  double eloc;
-  double eloc2;
-  double var;
-  double var2;
+  a = 4.442278245334543;
+  Delta = a * 0.05;
 
   placeParticles();
 
+  remove("dati/*.csv");
+
   FILE *fp;
-  fp=fopen("ThermAcc.csv","w+");
+  FILE *fp2;
 
-  for (int t = 0; t < 100000; t++)
+  fp2=fopen(filename3,"w+");
+
+  int cnt = 0;
+
+  for (b = bMin; b < bMax; b+= bStep)
   {
+    cnt++;
 
-    MC_Move();
+    clock_t begin = clock();
 
-    //wait until thermalization (t = 150, Delta = 0.002), see drawAcc.p
-    if(t > 1000)
+    b5 = pow(b, 5);
+    b10 = b5*b5;
+
+    Eloc = 0;
+    Eloc2 = 0;
+    Var = 0;
+    Var2 = 0;
+
+    Nsamples = 0;
+    tot = 0;
+
+    sprintf(filename2, "dati/E%.4lg.csv", b);
+    fp=fopen(filename2,"w+");
+
+    for (int t = 0; t < 12000; t++)
     {
-      tot += MC_acc();
-      Nsamples++;
-      double pot = E_pot();
-      Eloc += E_kin() + pot; //calculate the energy
-      Var += gsl_pow_2(E_kin() + pot); //calculate the energy
-      Eloc2 += E_kin2() + pot;
-      Var2 += gsl_pow_2(E_kin2() + pot);
-    }
-    else
-      MC_acc();
 
-    //print the progress bar
-    if(t % 1000 == 1)
-    {
-      printf("%d\n", t/1000);
-      eloc = Eloc/Nsamples;
-      eloc2 = Eloc2/Nsamples;
-      var = Var/Nsamples;
-      var2 = Var2/Nsamples;
-      printf("%lg \t %lg \n", eloc, sqrt((var - eloc*eloc)));
-      printf("%lg \t %lg \n", eloc2, sqrt((var2 - eloc2*eloc2)));
-      printf("%lg\n", (double) tot/(double) Nsamples);
+      MC_Move();
+
+      //wait until thermalization (t = 150, Delta = 0.002), see drawAcc.p
+      if(t > 2000)
+      {
+        tot += MC_acc();
+        Nsamples++;
+        double pot = E_pot();
+        double kin = E_kin();
+        double kin2 = E_kin2();
+        Eloc += kin + pot; //calculate the energy
+        Var += gsl_pow_2(kin + pot); //calculate the energy
+        Eloc2 += kin2 + pot;
+        Var2 += gsl_pow_2(kin2 + pot);
+
+        eloc = Eloc/Nsamples;
+        eloc2 = Eloc2/Nsamples;
+        var = Var/Nsamples;
+        var2 = Var2/Nsamples;
+
+        //print data into the file
+        fprintf(fp,"%ld %lg %lg %lg %lg \n",Nsamples, eloc, eloc2, sqrt((var - eloc*eloc)), sqrt((var2 - eloc2*eloc2)));
+      }
+      else
+      {
+        MC_acc();
+      }
+
+
+
+      if(t % 1000 == 999) printf("%d\n", t/1000);
     }
 
-    //print data into the file
-    fprintf(fp,"%d %f\n", t, tot/200.0);
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+
+    printf("\n %lg \t %lg \n", eloc, sqrt((var - eloc*eloc)));
+    printf("%lg \t %lg \n", eloc2, sqrt((var2 - eloc2*eloc2)));
+    printf("%lg %lg\n", (double) tot/(double) Nsamples, b);
+    printf("time = %lg s\n", time_spent);
+    printf("%d/%d completati\n", cnt, (int) ((bMax - bMin)/bStep)+1);
+
+    fprintf(fp2, "%lg %lg %lg %lg %lg %lg \n", b, eloc, eloc2, sqrt((var - eloc*eloc)), sqrt((var2 - eloc2*eloc2)), tot/(double) Nsamples);
+
+    fclose(fp);
   }
 
-  fclose(fp);
+  fclose(fp2);
 
   return 0;
 }
