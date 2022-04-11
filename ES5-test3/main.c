@@ -133,6 +133,10 @@ double normScalarProd(struct point points[N], int l, int i, int j)
   if(dyi > a) dyi = dyi - 2*a;
   if(dzi > a) dzi = dzi - 2*a;
 
+  if(dxi == a) dxi = dxi;
+  if(dyi == a) dyi = dyi;
+  if(dzi == a) dzi = dzi;
+
   if(dxi < -a) dxi = 2*a + dxi;
   if(dyi < -a) dyi = 2*a + dyi;
   if(dzi < -a) dzi = 2*a + dzi;
@@ -145,6 +149,10 @@ double normScalarProd(struct point points[N], int l, int i, int j)
   if(dyj > a) dyj = dyj - 2*a;
   if(dzj > a) dzj = dzj - 2*a;
 
+  if(dxj == a) dxj = dxj;
+  if(dyj == a) dyj = dyj;
+  if(dzj == a) dzj = dzj;
+
   if(dxj < -a) dxj = 2*a + dxj;
   if(dyj < -a) dyj = 2*a + dyj;
   if(dzj < -a) dzj = 2*a + dzj;
@@ -154,28 +162,49 @@ double normScalarProd(struct point points[N], int l, int i, int j)
   return prod/(r_ij(posNew, i, l) * r_ij(posNew, j, l));
 }
 
+int hardSphere(double r)
+{
+  if (r < 0.85) // distance normalized on sigma
+  {
+    return 1;
+  }
+  else return 0;
+
+}
+
 int MC_acc()
 {
   double acc;
-
+  double Orij;
+  double Nrij;
   double sumPsi = 0;
+  int check = 0; // check is > 0 if two particles are closer than 1 sigma (i.e. 1)
+
   for (int j = 0; j < N; j++)
   for (int i = 0; i < j; i++)
   {
-    sumPsi += gsl_pow_5(1/r_ij(pos, i, j)) - gsl_pow_5(1/r_ij(posNew, i, j));
+    Orij = r_ij(pos, i, j);
+    Nrij = r_ij(posNew, i, j);
+    sumPsi += gsl_pow_5(1/Orij) - gsl_pow_5(1/Nrij);
+
+    check += hardSphere(Nrij);
   }
 
-  acc = exp(b5*sumPsi);
-
-  if(acc > gsl_ran_flat(r, 0, 1))
+  if (check == 0)
   {
-    for (int i = 0; i < N; i++)
+    acc = exp(b5*sumPsi);
+
+    if(acc > gsl_ran_flat(r, 0, 1))
     {
-      pos[i].x = posNew[i].x;
-      pos[i].y = posNew[i].y;
-      pos[i].z = posNew[i].z;
+      for (int i = 0; i < N; i++)
+      {
+        pos[i].x = posNew[i].x;
+        pos[i].y = posNew[i].y;
+        pos[i].z = posNew[i].z;
+      }
+      return 1;
     }
-    return 1;
+    else return 0;
   }
   else return 0;
 }
@@ -239,8 +268,8 @@ double eloc2;
 double var;
 double var2;
 
-double bMax = 1.25;
-double bMin = 1.05;
+double bMax = 1.05;//1.25
+double bMin = 0.85;//1.05
 double bStep = 0.01;
 
 int main()

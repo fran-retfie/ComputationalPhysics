@@ -14,6 +14,6 @@ set grid
 
 FILES = system("ls -1 dati/*.csv")
 #plot for [data in FILES] data using 1:2 title data w line
-plot "dati/E1.1.csv" using 1:2 w line, "dati/E1.1.csv" using 1:3 w line
+plot "dati/E0.85.csv" using 1:2 w line, "dati/E1.1.csv" using 1:3 w line
 
 pause -1
