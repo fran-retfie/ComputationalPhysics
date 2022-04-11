@@ -24,6 +24,7 @@ char filename[20] = "dati/initialPos.csv";
 char filename1[20] = "dati/newPos.csv";
 char filename2[20];
 char filename3[20] = "dati/result.csv";
+char filename4[40];
 
 int const Ncells = 2;
 double a;
@@ -254,6 +255,7 @@ int main()
   placeParticles();
 
   remove("dati/*.csv");
+  remove("dati/particlePos/*.csv");
 
   FILE *fp;
   FILE *fp2;
@@ -299,6 +301,22 @@ int main()
         Var += gsl_pow_2(kin + pot); //calculate the energy
         Eloc2 += kin2 + pot;
         Var2 += gsl_pow_2(kin2 + pot);
+
+        if ((pot + kin)/Nsamples > 0.2)
+        {
+          printf("t: %d     ", t);
+          printf("pot: %lg      kin: %lg\n", pot,kin);
+          sprintf(filename4, "dati/particlePos/d%.4lg_t%d.csv", b,t);
+          writeCSVparticles(filename4,pos);
+        }
+
+        if ((pot + kin2)/Nsamples > 0.2)
+        {
+          printf("t: %d     ", t);
+          printf("pot: %lg      kin2: %lg\n", pot,kin2);
+          sprintf(filename4, "dati/particlePos/d%.4lg_t%d.csv", b,t);
+          writeCSVparticles(filename4,pos);
+        }
 
         eloc = Eloc/Nsamples;
         eloc2 = Eloc2/Nsamples;
