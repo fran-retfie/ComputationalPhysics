@@ -93,6 +93,37 @@ int writeCSVparticles(char *filename, struct point points[N])
   return 0;
 }
 
+// from volpx
+int sign(double x)
+{
+  return x > 0 ? 1 : -1;
+}
+
+double computeAlias(struct point pos_i, struct point pos_j)//compute the alias particle wrt j
+{
+  if (fabs(pos_j.x - pos_i.x) > a) pos_i.x += sign(pos_j.x - pos_i.x)*(2*a);
+  if (fabs(pos_j.y - pos_i.y) > a) pos_i.y += sign(pos_j.y - pos_i.y)*(2*a);
+  if (fabs(pos_j.z - pos_i.z) > a) pos_i.z += sign(pos_j.z - pos_i.z)*(2*a);
+
+  double dx = pos_j.x - pos_i.x;
+  double dy = pos_j.y - pos_i.x;
+  double dz = pos_j.z - pos_i.z;
+
+  double r = sqrt(dx*dx + dy*dy + dz*dz);
+  //printf("%lg\n",r < a ? r : -r);
+  return r < a ? r : -r;
+}
+
+void apply_periodic_bounds()
+{
+  for(int i=0;i<N;i++)
+  {
+    posNew[i].x -= (2*a)*floor(posNew[i].x/(2*a));
+    posNew[i].y -= (2*a)*floor(posNew[i].y/(2*a));
+    posNew[i].z -= (2*a)*floor(posNew[i].z/(2*a));
+  }
+}
+
 void MC_Move()
 {
   for(int i=0;i<N;i++)
@@ -101,13 +132,17 @@ void MC_Move()
     posNew[i].y = pos[i].y + gsl_ran_flat(r, -Delta, Delta);
     posNew[i].z = pos[i].z + gsl_ran_flat(r, -Delta, Delta);
 
+
+/*
     while(posNew[i].x > a)  posNew[i].x -= 2*a;
     while(posNew[i].y > a)  posNew[i].y -= 2*a;
     while(posNew[i].z > a)  posNew[i].z -= 2*a;
     while(posNew[i].x < -a) posNew[i].x += 2*a;
     while(posNew[i].y < -a) posNew[i].y += 2*a;
     while(posNew[i].z < -a) posNew[i].z += 2*a;
+*/
   }
+  apply_periodic_bounds(posNew);
 }
 
 double r_ij(struct point points[N], int i, int j)
@@ -116,9 +151,9 @@ double r_ij(struct point points[N], int i, int j)
   double dy = fabs(points[j].y - points[i].y);
   double dz = fabs(points[j].z - points[i].z);
 
-  if(dx > a) dx = 2*a - dx;
-  if(dy > a) dy = 2*a - dy;
-  if(dz > a) dz = 2*a - dz;
+  while(dx > a) dx = 2*a - dx;
+  while(dy > a) dy = 2*a - dy;
+  while(dz > a) dz = 2*a - dz;
 
   return gsl_hypot3(dx, dy, dz);
 }
@@ -129,33 +164,25 @@ double normScalarProd(struct point points[N], int l, int i, int j)
   double dyi = points[l].y - points[i].y;
   double dzi = points[l].z - points[i].z;
 
-  if(dxi > a) dxi = dxi - 2*a;
-  if(dyi > a) dyi = dyi - 2*a;
-  if(dzi > a) dzi = dzi - 2*a;
+  while(dxi > a) dxi = dxi - 2*a;
+  while(dyi > a) dyi = dyi - 2*a;
+  while(dzi > a) dzi = dzi - 2*a;
 
-  if(dxi == a) dxi = dxi;
-  if(dyi == a) dyi = dyi;
-  if(dzi == a) dzi = dzi;
-
-  if(dxi < -a) dxi = 2*a + dxi;
-  if(dyi < -a) dyi = 2*a + dyi;
-  if(dzi < -a) dzi = 2*a + dzi;
+  while(dxi < -a) dxi = 2*a + dxi;
+  while(dyi < -a) dyi = 2*a + dyi;
+  while(dzi < -a) dzi = 2*a + dzi;
 
   double dxj = points[l].x - points[j].x;
   double dyj = points[l].y - points[j].y;
   double dzj = points[l].z - points[j].z;
 
-  if(dxj > a) dxj = dxj - 2*a;
-  if(dyj > a) dyj = dyj - 2*a;
-  if(dzj > a) dzj = dzj - 2*a;
+  while(dxj > a) dxj = dxj - 2*a;
+  while(dyj > a) dyj = dyj - 2*a;
+  while(dzj > a) dzj = dzj - 2*a;
 
-  if(dxj == a) dxj = dxj;
-  if(dyj == a) dyj = dyj;
-  if(dzj == a) dzj = dzj;
-
-  if(dxj < -a) dxj = 2*a + dxj;
-  if(dyj < -a) dyj = 2*a + dyj;
-  if(dzj < -a) dzj = 2*a + dzj;
+  while(dxj < -a) dxj = 2*a + dxj;
+  while(dyj < -a) dyj = 2*a + dyj;
+  while(dzj < -a) dzj = 2*a + dzj;
 
   double prod = dxi * dxj + dyi * dyj + dzi * dzj;
 
@@ -164,7 +191,7 @@ double normScalarProd(struct point points[N], int l, int i, int j)
 
 int hardSphere(double r)
 {
-  if (r < 0.85) // distance normalized on sigma
+  if (r < 0.01) // distance normalized on sigma
   {
     return 1;
   }
@@ -183,11 +210,11 @@ int MC_acc()
   for (int j = 0; j < N; j++)
   for (int i = 0; i < j; i++)
   {
-    Orij = r_ij(pos, i, j);
-    Nrij = r_ij(posNew, i, j);
-    sumPsi += gsl_pow_5(1/Orij) - gsl_pow_5(1/Nrij);
+    Orij = computeAlias(pos[i],pos[j]);//r_ij(pos, i, j);
+    Nrij = computeAlias(posNew[i],posNew[j]);//r_ij(posNew, i, j);
+    if (Nrij > 0) sumPsi += gsl_pow_5(1/Orij) - gsl_pow_5(1/Nrij);
 
-    check += hardSphere(Nrij);
+    //check += hardSphere(Nrij);
   }
 
   if (check == 0)
@@ -208,6 +235,7 @@ int MC_acc()
   }
   else return 0;
 }
+/*
 
 double E_kin()
 {
@@ -233,17 +261,49 @@ double E_kin()
   }
   return h2_2m * (-25/4 * b10 * Etmp2 + 10 * b5 * Etmp);
 }
+*/
+
+double E_kin()
+{
+  double Etmp = 0;
+  double sum = 0;
+  double tmp_x=0;
+  double tmp_y=0;
+  double tmp_z=0;
+
+
+  for (int l = 0; l < N; l++)
+  {
+    for (int i = 0; i < N; i++)
+    {
+      if(l != i)
+      {
+        double o_ril = computeAlias(pos[i],pos[l]);//r_ij(pos, i, l);
+        if (o_ril>0)
+        {
+          Etmp += gsl_pow_7(1./o_ril);
+          tmp_x += (pos[l].x - pos[i].x)/o_ril;
+          tmp_y += (pos[l].y - pos[i].y)/o_ril;
+          tmp_z += (pos[l].z - pos[i].z)/o_ril;
+        }
+      }
+    }
+  }
+  return h2_2m * (-25/4 * b10 * (tmp_x*tmp_x + tmp_y*tmp_y + tmp_z*tmp_z) + 10 * b5 * Etmp);
+}
 
 double E_kin2()
 {
   double Etmp = 0;
+  double o_ril = 0;
 
   for (int l = 0; l < N; l++)
   {
     for (int i = 0; i < N; i++)
     if(i != l)
     {
-      Etmp += gsl_pow_7(1/r_ij(pos, i, l));
+      o_ril = computeAlias(pos[i],pos[l]);
+      if (o_ril>0) Etmp += gsl_pow_7(1./o_ril);//r_ij(pos, i, l));
     }
   }
   return h2_2m * 5 * b5 * Etmp;
@@ -252,12 +312,17 @@ double E_kin2()
 double E_pot()
 {
   double Etmp = 0;
+  double rij = 0;
 
   for (int i = 0; i < N; i++)
   for (int j = i+1; j < N; j++)
   {
-    double rij6 = gsl_pow_int(r_ij(pos, i, j), -6);
-    Etmp += 4*(rij6*rij6 - rij6);
+    rij = computeAlias(pos[i],pos[j]);
+    if (rij>0)
+    {
+      double rij6 = gsl_pow_int(rij, -6);// gsl_pow_int(r_ij(pos, i, j), -6);
+      Etmp += 4*(rij6*rij6 - rij6);
+    }
   }
 
   return Etmp;
@@ -268,8 +333,8 @@ double eloc2;
 double var;
 double var2;
 
-double bMax = 1.05;//1.25
-double bMin = 0.85;//1.05
+double bMax = 1.4;//1.25
+double bMin = 1.;//1.05
 double bStep = 0.01;
 
 int main()
@@ -278,10 +343,11 @@ int main()
   T = gsl_rng_default;
   r = gsl_rng_alloc (T);
 
-  a = 4.442278245334543;
-  Delta = a * 0.05;
+  a = 4.442278245334543/2.;
+  Delta = a * 0.03;
 
   placeParticles();
+  //apply_periodic_bounds();
 
   remove("dati/*.csv");
   remove("dati/particlePos/*.csv");
@@ -289,6 +355,7 @@ int main()
   FILE *fp;
   FILE *fp2;
 
+  printf("%lg\n", rint((-a-0.1)/(2*a)));
   fp2=fopen(filename3,"w+");
 
   int cnt = 0;
@@ -330,7 +397,7 @@ int main()
         Var += gsl_pow_2(kin + pot); //calculate the energy
         Eloc2 += kin2 + pot;
         Var2 += gsl_pow_2(kin2 + pot);
-
+/*
         if ((pot + kin)/Nsamples > 0.2)
         {
           printf("t: %d     ", t);
@@ -346,7 +413,7 @@ int main()
           sprintf(filename4, "dati/particlePos/d%.4lg_t%d.csv", b,t);
           writeCSVparticles(filename4,pos);
         }
-
+*/
         eloc = Eloc/Nsamples;
         eloc2 = Eloc2/Nsamples;
         var = Var/Nsamples;
