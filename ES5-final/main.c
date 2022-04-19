@@ -36,11 +36,16 @@ double Eloc;
 double Eloc2;
 double Var;
 double Var2;
+double pot;
+double kin;
+double kin2;
+double P1 = 1;
+double P2 = 1;
 
 long Nsamples;
 long tot;
 
-
+struct point point_allias;
 
 double const h2_2m = 0.09075588736790198;
 
@@ -93,36 +98,47 @@ int writeCSVparticles(char *filename, struct point points[N])
   return 0;
 }
 
+void compute_allias(point& me, point& oth)
+{
+  while((me.x - oth.x) >  a) oth.x += 2*a;
+  while((me.y - oth.y) >  a) oth.y += 2*a;
+  while((me.z - oth.z) >  a) oth.z += 2*a;
+  while((me.x - oth.x) < -a) oth.x -= 2*a;
+  while((me.y - oth.y) < -a) oth.y -= 2*a;
+  while((me.z - oth.z) < -a) oth.z -= 2*a;
+}
+
+double ran_flat(double Delta)
+{
+  return Delta * ( 2*(double) rand()/(double) RAND_MAX - 1 );
+}
 void MC_Move()
 {
   for(int i=0;i<N;i++)
   {
-    posNew[i].x = pos[i].x + gsl_ran_flat(r, -Delta, Delta);
-    posNew[i].y = pos[i].y + gsl_ran_flat(r, -Delta, Delta);
-    posNew[i].z = pos[i].z + gsl_ran_flat(r, -Delta, Delta);
+    posNew[i].x = pos[i].x + ran_flat(Delta);
+    posNew[i].y = pos[i].y + ran_flat(Delta);
+    posNew[i].z = pos[i].z + ran_flat(Delta);
 
-    while(posNew[i].x > a)  posNew[i].x -= 2*a;
-    while(posNew[i].y > a)  posNew[i].y -= 2*a;
-    while(posNew[i].z > a)  posNew[i].z -= 2*a;
+    while(posNew[i].x >  a) posNew[i].x -= 2*a;
+    while(posNew[i].y >  a) posNew[i].y -= 2*a;
+    while(posNew[i].z >  a) posNew[i].z -= 2*a;
     while(posNew[i].x < -a) posNew[i].x += 2*a;
     while(posNew[i].y < -a) posNew[i].y += 2*a;
     while(posNew[i].z < -a) posNew[i].z += 2*a;
   }
 }
 
-double r_ij(struct point points[N], int i, int j)
+double r_ij(struct point points[N], point& point_i, int j)
 {
-  double dx = fabs(points[j].x - points[i].x);
-  double dy = fabs(points[j].y - points[i].y);
-  double dz = fabs(points[j].z - points[i].z);
-
-  if(dx > a) dx = 2*a - dx;
-  if(dy > a) dy = 2*a - dy;
-  if(dz > a) dz = 2*a - dz;
+  double dx = fabs(points[j].x - point_i.x);
+  double dy = fabs(points[j].y - point_i.y);
+  double dz = fabs(points[j].z - point_i.z);
 
   return gsl_hypot3(dx, dy, dz);
 }
 
+/*
 double normScalarProd(struct point points[N], int l, int i, int j)
 {
   double dxi = points[l].x - points[i].x;
@@ -153,47 +169,91 @@ double normScalarProd(struct point points[N], int l, int i, int j)
 
   return prod/(r_ij(posNew, i, l) * r_ij(posNew, j, l));
 }
+*/
 
+/*
 int hardSphere(double r)
 {
   return (r < 0.6) ? 1 : 0; //r < 0.85
 }
+*/
 
+/*
 int MC_acc()
 {
   double acc;
   double Orij;
   double Nrij;
   double sumPsi = 0;
-  int check = 0; // check is > 0 if two particles are closer than 1 sigma (i.e. 1)
+  //int check = 0; // check is > 0 if two particles are closer than 1 sigma (i.e. 1)
 
   for (int j = 0; j < N; j++)
   for (int i = 0; i < j; i++)
   {
-    Orij = r_ij(pos, i, j);
-    Nrij = r_ij(posNew, i, j);
+    point_allias = pos[i];
+    compute_allias(pos[j], point_allias);
+    Orij = r_ij(pos, point_allias, j);
+
+    point_allias = posNew[i];
+    compute_allias(posNew[j], point_allias);
+    Nrij = r_ij(posNew, point_allias, j);
+
     sumPsi += gsl_pow_5(1/Orij) - gsl_pow_5(1/Nrij);
 
-    check += hardSphere(Nrij);
+    //check += hardSphere(Nrij);
   }
 
-  if (check == 0)
-  {
-    acc = exp(b5*sumPsi);
+  acc = exp(b5*sumPsi);
 
-    double randN = gsl_ran_flat(r, 0, 1);
-    if(acc > randN)
+  double randN = (double) rand()/(double) RAND_MAX; //gsl_ran_flat(r, 0, 1);
+
+  if(acc > randN)
+  {
+    //printf("%lg %lg\n",acc ,randN);
+    for (int i = 0; i < N; i++)
     {
-      printf("%lg %lg\n",acc ,randN);
-      for (int i = 0; i < N; i++)
-      {
-        pos[i].x = posNew[i].x;
-        pos[i].y = posNew[i].y;
-        pos[i].z = posNew[i].z;
-      }
-      return 1;
+      pos[i].x = posNew[i].x;
+      pos[i].y = posNew[i].y;
+      pos[i].z = posNew[i].z;
     }
-    else return 0;
+    return 1;
+  }
+  else return 0;
+}
+*/
+
+
+int MC_acc()
+{
+
+  P2 = P1;
+
+  double sumPsi = 0;
+
+  for (int j = 0; j < N; j++)
+  for (int i = 0; i < j; i++)
+  {
+    point_allias = posNew[i];
+    compute_allias(posNew[j], point_allias);
+    sumPsi += pow(b/r_ij(posNew, point_allias, j), 5);
+
+  }
+
+  P1 = exp(-0.5 * sumPsi) * exp(-0.5 * sumPsi);
+
+  double acc = P1/P2;
+
+  double randN = (double) rand()/(double) RAND_MAX; //gsl_ran_flat(r, 0, 1);
+  if(acc > randN)
+  {
+    //printf("%lg %lg\n",acc ,randN);
+    for (int i = 0; i < N; i++)
+    {
+      pos[i].x = posNew[i].x;
+      pos[i].y = posNew[i].y;
+      pos[i].z = posNew[i].z;
+    }
+    return 1;
   }
   else return 0;
 }
@@ -205,20 +265,25 @@ double E_kin()
 
   for (int l = 0; l < N; l++)
   {
+    double tmp_x = 0;
+    double tmp_y = 0;
+    double tmp_z = 0;
+
     for (int i = 0; i < N; i++)
     {
       if(l != i)
       {
-        double o_ril = 1./r_ij(pos, i, l);
+        point_allias = pos[i];
+        compute_allias(posNew[l], point_allias);
+        double o_ril = 1./r_ij(pos, point_allias, l);
         Etmp += gsl_pow_7(o_ril);
 
-        for (int j = 0; j < N; j++)
-        {
-          if(l != j)
-            Etmp2 += normScalarProd(pos, l, i, j) * gsl_pow_6(o_ril) * gsl_pow_6(1/r_ij(pos, j, l));
-        }
+        tmp_x += (point_allias.x - pos[l].x) * gsl_pow_7(o_ril);
+        tmp_y += (point_allias.y - pos[l].y) * gsl_pow_7(o_ril);
+        tmp_z += (point_allias.z - pos[l].z) * gsl_pow_7(o_ril);
       }
     }
+    Etmp2 += tmp_x*tmp_x + tmp_y*tmp_y + tmp_z*tmp_z;
   }
   return h2_2m * (-25/4 * b10 * Etmp2 + 10 * b5 * Etmp);
 }
@@ -232,7 +297,9 @@ double E_kin2()
     for (int i = 0; i < N; i++)
     if(i != l)
     {
-      Etmp += gsl_pow_7(1/r_ij(pos, i, l));
+      point_allias = pos[i];
+      compute_allias(posNew[l], point_allias);
+      Etmp += gsl_pow_7(1/r_ij(pos, point_allias, l));
     }
   }
   return h2_2m * 5 * b5 * Etmp;
@@ -245,7 +312,9 @@ double E_pot()
   for (int i = 0; i < N; i++)
   for (int j = i+1; j < N; j++)
   {
-    double rij6 = gsl_pow_int(r_ij(pos, i, j), -6);
+    point_allias = pos[i];
+    compute_allias(posNew[j], point_allias);
+    double rij6 = gsl_pow_6(1/r_ij(pos, point_allias, j));
     Etmp += 4*(rij6*rij6 - rij6);
   }
 
@@ -257,18 +326,14 @@ double eloc2;
 double var;
 double var2;
 
-double bMax = 1.6; //2.5;//1.25
-double bMin = 1.3; //0.5;//1.05
+double bMax = 1.3; //2.5;//1.25
+double bMin = 1.1; //0.5;//1.05
 double bStep = 0.01;
 
 int main()
 {
-  gsl_rng_env_setup();
-  T = gsl_rng_default;
-  r = gsl_rng_alloc (T);
-
-  a = 4.442278245334543;
-  Delta = a * 0.1;
+  a = 4.442278245334543/2;
+  Delta = a * 0.005;
 
   placeParticles();
 
@@ -312,14 +377,15 @@ int main()
       {
         tot += MC_acc();
         Nsamples++;
-        double pot = E_pot();
-        double kin = E_kin();
-        double kin2 = E_kin2();
+        pot = E_pot();
+        kin = E_kin();
+        kin2 = E_kin2();
         Eloc += kin + pot; //calculate the energy
         Var += gsl_pow_2(kin + pot); //calculate the energy
         Eloc2 += kin2 + pot;
         Var2 += gsl_pow_2(kin2 + pot);
 
+        /*
         if ((pot + kin)/Nsamples > 0.2)
         {
           printf("t: %d     ", t);
@@ -335,6 +401,7 @@ int main()
           sprintf(filename4, "dati/particlePos/d%.4lg_t%d.csv", b,t);
           writeCSVparticles(filename4,pos);
         }
+        */
 
         eloc = Eloc/Nsamples;
         eloc2 = Eloc2/Nsamples;
@@ -342,7 +409,7 @@ int main()
         var2 = Var2/Nsamples;
 
         //print data into the file
-        fprintf(fp,"%ld %lg %lg %lg %lg \n",Nsamples, eloc, eloc2, sqrt((var - eloc*eloc)), sqrt((var2 - eloc2*eloc2)));
+        fprintf(fp,"%ld %lg %lg %lg %lg %lg %lg %lg \n",Nsamples, eloc, eloc2, sqrt((var - eloc*eloc)), sqrt((var2 - eloc2*eloc2)), kin, kin2, pot);
       }
       else
       {
