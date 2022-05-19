@@ -11,8 +11,10 @@ set xlabel "b"
 
 set grid
 
-plot "dati/result.csv" using 1:3:($3-$5):($3+$5) with errorbars, "dati/result.csv" using 1:2:($2-$4):($2+$4) with errorbars
+DATA = "dati/results_rho19.674.csv"
 
-#plot "dati/result.csv" using 1:3 w points ps 2, "dati/result.csv" using 1:2 w points ps 2
+#plot DATA using 1:3:($3-$5):($3+$5) with errorbars, DATA using 1:2:($2-$4):($2+$4) with errorbars
+
+plot DATA using 1:3 w points ps 2, DATA using 1:2 w points ps 2
 
 pause -1

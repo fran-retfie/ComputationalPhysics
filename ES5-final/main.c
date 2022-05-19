@@ -261,8 +261,8 @@ double bMin = 1.1; //0.5;//1.05
 double bStep = 0.01;
 
 const double rho_exp = 21.86;
-double rho_Min = rho_exp * 0.9;
-double rho_Max = rho_exp * 1.1;
+double rho_Min = rho_exp * 0.95;
+double rho_Max = rho_exp * 1.05;
 double n_rho = 10;
 
 char filename[20] = "dati/initialPos.csv";
@@ -313,7 +313,7 @@ int main()
       sprintf(filename2, "dati/E%.4lg_rho%.5lg.csv", b, rho);
       fp=fopen(filename2,"w+");
 
-      for (int t = 0; t < 100000; t++)
+      for (int t = 0; t < 200000; t++)
       {
 
         MC_Move();
@@ -365,19 +365,19 @@ int main()
 
 
 
-        if(t % 1000 == 999) printf("%d\n", t/1000);
+        if(t % 10000 == 9999) printf("%d\n", t/10000);
       }
 
       clock_t end = clock();
       double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
 
-      printf("\n %lg \t %lg \n", eloc, sqrt((var - eloc*eloc)));
-      printf("%lg \t %lg \n", eloc2, sqrt((var2 - eloc2*eloc2)));
+      printf("\n %lg \t %lg \n", eloc, sqrt( (var - eloc*eloc)/(Nsamples-1) ));
+      printf("%lg \t %lg \n", eloc2, sqrt( (var2 - eloc2*eloc2)/(Nsamples-1) ));
       printf("%lg %lg\n", (double) tot/(double) Nsamples, b);
       printf("time = %lg s\n", time_spent);
       printf("%d/%d completati\n", cnt, (int) ((bMax - bMin)/bStep)+1);
 
-      fprintf(fp2, "%lg %lg %lg %lg %lg %lg \n", b, eloc, eloc2, sqrt((var - eloc*eloc)), sqrt((var2 - eloc2*eloc2)), tot/(double) Nsamples);
+      fprintf(fp2, "%lg %lg %lg %lg %lg %lg \n", b, eloc, eloc2, sqrt((var - eloc*eloc)/(Nsamples-1)), sqrt((var2 - eloc2*eloc2)/(Nsamples-1)), tot/(double) Nsamples);
 
       fclose(fp);
     }

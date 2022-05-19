@@ -164,6 +164,9 @@ int main()
   double var2;
 
   placeParticles();
+  writeCSVparticles(filename, pos);
+
+  return 0;
 
   FILE *fp;
   fp=fopen("ThermAcc.csv","w+");
