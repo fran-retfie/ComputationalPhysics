@@ -54,3 +54,6 @@ dkms.conf
 #CSV data
 *.csv
 dati/*
+
+#jupyther-notebook junk
+.ipynb*/
