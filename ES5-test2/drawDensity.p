@@ -11,7 +11,6 @@ set datafile separator ','
 
 set grid
 set key off
-splot 'initialPos.csv' using 1:2:3:(sprintf("%d", $4)) with labels point pt 7 ps 3 lc rgb "blue" offset char 0.4,0.4,0.4, \
-      'newPos.csv' using 1:2:3:(sprintf("%d", $4)) with labels point pt 7 ps 3 lc rgb "magenta" offset char 0.4,0.4,0.4
+splot 'initialPos.csv' using 1:2:3:(sprintf("%d", $4)) with labels point pt 7 ps 3 lc rgb "blue" offset char 0.4,0.4,0.4
 
 pause -1

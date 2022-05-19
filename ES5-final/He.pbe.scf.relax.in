@@ -1,0 +1,41 @@
+&CONTROL
+    calculation  = 'vc-relax'
+    title        = 'Al'
+    restart_mode = 'from_scratch'
+    outdir       = './tmp/',
+    prefix       = 'Al'
+    verbosity    = 'high'
+    !wf_collect   = .true.
+    pseudo_dir   = '/home/francesco.osti-1/pseudo'
+    etot_conv_thr = 1.D-10
+    forc_conv_thr = 1.D-9
+    tstress = .true.
+    tprnfor = .true. 
+/
+&SYSTEM
+    ibrav        = 1
+    celldm(1)    = 5.677231597537545 
+    nat          = 4
+    ntyp         = 1
+    ecutwfc      = 50
+    ecutrho      = 500
+    occupations = 'smearing'
+    smearing = 'gauss'
+    degauss = 0.025
+/
+&ELECTRONS
+    !mixing_beta      = 0.35
+/
+&IONS
+/
+&CELL
+/
+ATOMIC_SPECIES
+     He   26.9815    Al.pbe-nl-rrkjus_psl.1.0.0.UPF
+ATOMIC_POSITIONS { crystal }
+He            0.0000000000        0.0000000000        0.0000000000
+He            0.5000000000        0.5000000000        0.0000000000
+He            0.5000000000        0.0000000000        0.5000000000
+He            0.0000000000        0.5000000000        0.5000000000
+K_POINTS { automatic }
+22  22  22  0  0  0
