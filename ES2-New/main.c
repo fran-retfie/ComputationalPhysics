@@ -5,7 +5,7 @@
 #include <gsl/gsl_eigen.h>
 #include <time.h>
 
-double pi=4.*atan(1.);
+const double pi=4.*atan(1.);
 //# of basis functions
 #define n 8
 //Atomic Number
@@ -62,29 +62,51 @@ void H(double Hm[n][n])
   }
   return;
 }
-//Direct and Exchange terms
+//Direct term
 void D(double Dm[n][n][n][n])
 {
   double pi5m = sqrt(pi*pi*pi*pi*pi);
   double tmp1,tmp2;
   for(int p=0;p<n;p++)
   {
-    for(int r=0;r<n;r++)
+    for(int q=0;q<n;q++)
     {
-      for(int q=0;q<n;q++)
+      for(int r=0;r<n;r++)
       {
         tmp1 = alpha[p]+alpha[q];
         for(int s=0;s<n;s++)
         {
           tmp2 = alpha[r]+alpha[s];
-          Dm[p][r][q][s] = 2*pi5m/(tmp1*tmp2*sqrt(tmp1+tmp2));
+          Dm[p][q][r][s] = 2*pi5m/(tmp1*tmp2*sqrt(tmp1+tmp2));
         }
       }
     }
   }
   return;
 }
-void FockMatrix(gsl_matrix *Fm, double Cm[N][n], double Dm[n][n][n][n], double Hm[n][n])
+//Exchange term
+void Ex(double Exm[n][n][n][n])
+{
+  double pi5m = sqrt(pi*pi*pi*pi*pi);
+  double tmp1,tmp2;
+  for(int p=0;p<n;p++)
+  {
+    for(int q=0;q<n;q++)
+    {
+      for(int r=0;r<n;r++)
+      {
+        tmp1 = alpha[p]+alpha[r];
+        for(int s=0;s<n;s++)
+        {
+          tmp2 = alpha[q]+alpha[s];
+          Exm[p][q][r][s] = 2*pi5m/(tmp1*tmp2*sqrt(tmp1+tmp2));
+        }
+      }
+    }
+  }
+  return;
+}
+void FockMatrix(gsl_matrix *Fm, gsl_matrix *Cm, double Exm[n][n][n][n], double Dm[n][n][n][n], double Hm[n][n])
 {
   double F_pq = 0;
   for(int p=0;p<n;p++)
@@ -98,7 +120,7 @@ void FockMatrix(gsl_matrix *Fm, double Cm[N][n], double Dm[n][n][n][n], double H
         {
           for(int s=0;s<n;s++)
           {
-            F_pq += Cm[k][r]*Cm[k][s]*(2*Dm[p][r][q][s] - Dm[p][r][s][q]);
+            F_pq += gsl_matrix_get(Cm, k,r)*gsl_matrix_get(Cm, k,s)*(2*Dm[p][q][r][s] - Exm[p][q][r][s]);
           }
         }
       }
@@ -182,7 +204,7 @@ void printCMatrix(double M[N][n])
   }
 }
 //Hartree-Fock Energy
-void E_HF(double Cm[N][n], double eval[orbitalNum], double Dm[n][n][n][n], double Hm[n][n], double E[2])
+void E_HF(gsl_matrix Cm, double eval[orbitalNum], double Dm[n][n][n][n], double Exm[n][n][n][n], double Hm[n][n], gsl_matrix *E)
 {
   double result=0;
   double tmp = 0;
@@ -198,7 +220,7 @@ void E_HF(double Cm[N][n], double eval[orbitalNum], double Dm[n][n][n][n], doubl
           {
             for(int s=0;s<n;s++)
             {
-              tmp += Cm[i][p]*Cm[k][r]*Cm[i][q]*Cm[k][s]*(2*Dm[p][r][q][s]-Dm[p][r][s][q]); //No 2 for H
+              tmp += gsl_matrix_get(Cm, i,p)*gsl_matrix_get(Cm, k,r)*gsl_matrix_get(Cm, i,q)*gsl_matrix_get(Cm, k,s)*(2*Dm[p][q][r][s]-Exm[p][q][r][s]); //No 2 for H
             }
           }
         }
@@ -242,16 +264,38 @@ void initCoef(double Cm[N][n])
     }
   }
 }
-void updateCoef(double Cm[N][n], double CmNew[N][n])
+void updateCoef(gsl_matrix *Cm, gsl_matrix *CmNew)
 {
+  double tmp=0;
   for(int k=0;k<orbitalNum;k++)//column
   {
     for(int i=0;i<n;i++)//row
     {
-      Cm[k][i] = mixing*CmNew[k][i] + (1-mixing)*Cm[k][i];
+      tmp=mixing*gsl_matrix_get(CmNew,i,k) + (1-mixing)*gsl_matrix_get(Cm,i,k);
+      gsl_matrix_set(Cm,i,k,tmp);
     }
   }
 }
+//tks volpx
+void Roothan(gsl_matrix *C, gsl_matrix *E, const gsl_matrix *F,const gsl_matrix *V,gsl_eigen_symmv_workspace *ws, gsl_matrix *A, gsl_matrix *Fp)
+{
+  gsl_matrix_set_zero(A);
+  gsl_matrix_set_zero(Fp);
+
+  //Compute Fp=F'=V^T F V
+  gsl_blas_dgemm(CblasTrans, CblasNoTrans, 1.0, V, F, 0.0, A);
+  gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, A, V, 0.0, Fp);
+
+  //Sort eigenvalue problem for Fp
+  gsl_eigen_symmv(Fp, E, A, w);
+  gsl_eigen_symmv_sort(E,A,GSL_EIGEN_SORT_VAL_ASC);
+
+  //C=V C'
+  gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, V, A, 0.0, C);
+
+  return;
+}
+
 
 
 int main()
@@ -264,111 +308,76 @@ int main()
   {
     printf("%lf\n", alpha[i]);
   }
+  gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(n);
   //Matrices init
   double Hm[n][n];
   gsl_matrix *Sm = gsl_matrix_alloc(n,n);
+  gsl_matrix *SVec = gsl_matrix_alloc(n,n);
+  gsl_matrix *SVal = gsl_vector_alloc(n);
   double Dm[n][n][n][n];
-  double Cm[N][n];
-  double CmNew[N][n];
+  double Exm[n][n][n][n];
+  gsl_matrix *Cm = gsl_matrix_alloc(n,n);
+  gsl_matrix *CmNew = gsl_matrix_alloc(n,n);
   double Eval[orbitalNum];
 
+  gsl_matrix *X = gsl_matrix_alloc(n,n);
+  gsl_matrix *E = gsl_matrix_alloc(n,n);
   gsl_matrix *Fm = gsl_matrix_alloc(n,n);
   gsl_matrix *evec = gsl_matrix_alloc(n,n);
   gsl_vector *eval = gsl_vector_alloc(n);
+  gsl_matrix_set_zero(Sm);
+  gsl_matrix_set_zero(SVec);
+  gsl_vector_set_zero(SVal);
+  gsl_matrix_set_zero(Cm);
+  gsl_matrix_set_zero(CmNew);
+  gsl_matrix_set_zero(X);
+  gsl_matrix_set_zero(E);
   gsl_matrix_set_zero(evec);
   gsl_matrix_set_zero(Fm);
   gsl_vector_set_zero(eval);
 
   double thr = 0.00001;
   int counter = 0;
-  double E[2];
-  E[0]=0;E[1]=1;
 
   H(Hm);
   S(Sm);
+  gsl_eigen_symmv(Sm,SVal,SVec,w);
+  gsl_eigen_symmv_sort(SVal,SVec,GSL_EIGEN_SORT_VAL_ASC);
+  for(int i=0;i<n;i++)
+  {
+    for(int j=0;j<n;j++)
+    {
+      gsl_matrix_set(X,i,j,gsl_matrix_get(SVec,i,j) / gsl_matrix_get(SVal,i,j));
+    }
+  }
   D(Dm);
-  initCoef(Cm);
-  printCMatrix(Cm);
+  Ex(Exm);
 
   printDoubleMatrix(h,Hm);
   printGslMatrix(s,Sm);
   //printDMatrix(de,Dm);
 
-  double tmp,tmpOld,Eold;
+  double tmp,tmpOld,Eold,Enew;
   int index[orbitalNum];
   Eold=1;
+  Enew=0;
 
-  while(fabs(E[0]-Eold)>thr)
+  while(fabs(Enew-Eold)>thr)
   //for(int ii=0;ii<200;ii++)
   {
     counter++;
-    for(int k=0;k<orbitalNum;k++)
-    {
-      index[k]=0;
-      Eval[k]=0;
-    }
-    S(Sm);
-    tmp = 0;
-    tmpOld = 0;
     FockMatrix(Fm,Cm,Dm,Hm);
-    gsl_eigen_gensymmv_workspace *w = gsl_eigen_gensymmv_alloc(n);
-    gsl_eigen_gensymmv(Fm, Sm, eval, evec, w);
-    gsl_matrix_set_zero(Fm);
-    //printGslMatrix(h,evec);
-    //Sort eval and evec
-    for(int k=0;k<orbitalNum;k++)
-    {
-      for(int i=0;i<n;i++)
-      {
-        tmp = gsl_vector_get(eval,i);
-        if((tmp<tmpOld) && ((i!=index[k-1])||(k==0)))
-        {
-          Eval[k] = tmp;
-          index[k] = i;
-          tmpOld = tmp;
-        }
-      }
+    Roothan(Cm,E,Fm,X,w,A,Fp);
     }
     //Get new coeff from evec
-    for(int k=0;k<orbitalNum;k++)//column
-    {
-      for(int i=0;i<n;i++)//row
-      {
-        tmp = gsl_matrix_get(evec,i,index[k]);
-        CmNew[k][i] = tmp;
-      }
-    }
 
     updateCoef(Cm,CmNew);
-    Eold = E[0];
+    Eold = gal_matrix_get(E,0,0);
     E_HF(Cm,Eval,Dm,Hm,E);
     printf("E1: %lf     E2: %lf\n", E[0],E[1]);
 
-    gsl_eigen_gensymmv_free(w);
+
   }
+  gsl_eigen_symmv_free(w);
   printf("E: %lf    iterations: %d\n", E[0], counter);
-  printCMatrix(Cm);
-  //printCMatrix(CmNew);
-  tmp=0;
-  for(int i=0;i<n;i++)
-  {
-    tmp += Cm[0][i]*Cm[0][i];
-  }
-  printf("%lf\n", sqrt(tmp));
-  printf("Cm matrix: \n");
-  for(int i=0;i<N;i++)
-  {
-    for(int j=0;j<n;j++)
-    {
-      Cm[i][j] = Cm[i][j]/sqrt(tmp);
-      printf("%f  ", Cm[i][j]);
-    }
-    printf("\n");
-  }
-  tmp=0;
-  for(int i=0;i<n;i++)
-  {
-    tmp += Cm[0][i]*Cm[0][i];
-  }
-  printf("%lf\n", sqrt(tmp));
 }
