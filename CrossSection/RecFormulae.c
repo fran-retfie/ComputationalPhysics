@@ -2,7 +2,7 @@
 #include "RecFormulae.h"
 #include "math.h"
 #include "stdlib.h"
-double *Bessel(double x, int Lmax, int kind, double *s)
+void Bessel(double x, int Lmax, int kind, double s[])
 {
 //  x=300;
   if(kind==0) //j_l
@@ -24,5 +24,4 @@ double *Bessel(double x, int Lmax, int kind, double *s)
     }
   }
   for(int l=0; l<Lmax+1;l++) s[l] = s[l+1];
-  return s;
 }
